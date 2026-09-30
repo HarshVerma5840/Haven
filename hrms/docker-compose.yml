@@ -1,0 +1,82 @@
+name: ${COMPOSE_PROJECT_NAME:-hrms}
+
+services:
+  mariadb:
+    image: mariadb:10.8
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --skip-innodb-read-only-compressed
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-123}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u root -p$$MARIADB_ROOT_PASSWORD || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  frappe:
+    image: frappe/bench:latest
+    command: bash /workspace/docker/entrypoint.sh
+    user: root
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - SHELL=/bin/bash
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-123}
+      - FRAPPE_SITE_NAME=${FRAPPE_SITE_NAME:-hrms.localhost}
+      - FRAPPE_ADMIN_PASSWORD=${FRAPPE_ADMIN_PASSWORD:-admin}
+      - HRMS_SEED_BACKUP_DIR=${HRMS_SEED_BACKUP_DIR:-/workspace/backups/seed}
+      - FIREBASE_API_KEY=${FIREBASE_API_KEY:-}
+      - FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN:-}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-}
+      - FIREBASE_APP_ID=${FIREBASE_APP_ID:-}
+      - FIREBASE_UID_FIELD=${FIREBASE_UID_FIELD:-firebase_uid}
+      - FIREBASE_ADMIN_CREDENTIALS_JSON=${FIREBASE_ADMIN_CREDENTIALS_JSON:-}
+      - FIREBASE_ADMIN_CREDENTIALS_FILE=${FIREBASE_ADMIN_CREDENTIALS_FILE:-}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_USE_TLS=${SMTP_USE_TLS:-true}
+      - SMTP_SENDER=${SMTP_SENDER:-}
+      - SMTP_EMAIL_ACCOUNT=${SMTP_EMAIL_ACCOUNT:-}
+      - SMTP_EMAIL_PASSWORD=${SMTP_EMAIL_PASSWORD:-}
+    working_dir: /home/frappe
+    volumes:
+      - .:/workspace
+      - frappe-bench:/home/frappe/frappe-bench
+    ports:
+      - "${HRMS_WEB_PORT:-8000}:8000"
+      - "${HRMS_SOCKETIO_PORT:-9000}:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/method/frappe.ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  mariadb-data:
+    name: ${HRMS_VOLUME_PREFIX:-docker}_mariadb-data
+  frappe-bench:
+    name: ${HRMS_VOLUME_PREFIX:-docker}_frappe-bench
+
