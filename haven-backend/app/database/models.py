@@ -1,5 +1,26 @@
-from sqlalchemy import Column, String, Date, Integer, Float, CheckConstraint, UniqueConstraint, DateTime, func
+import enum
+from sqlalchemy import Column, String, Date, Integer, Float, CheckConstraint, UniqueConstraint, DateTime, func, Enum as SQLAlchemyEnum, Boolean
 from .base import Base
+
+class RoleEnum(str, enum.Enum):
+    HR_ADMIN = "HR_ADMIN"
+    MANAGER = "MANAGER"
+    EMPLOYEE = "EMPLOYEE"
+
+class User(Base):
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    role = Column(SQLAlchemyEnum(RoleEnum), nullable=False)
+    employee_hash = Column(String, nullable=True) # For EMPLOYEE
+    department = Column(String, nullable=True) # For MANAGER
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
 
 class WeeklyEmployeeMetrics(Base):
     __tablename__ = 'weekly_employee_metrics'

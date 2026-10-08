@@ -9,8 +9,18 @@ from app.main import app
 from app.api.predictions import get_model_service
 from app.services.model_service import ModelService, ModelNotAvailableError
 from app.schemas.metrics import WeeklyEmployeeMetricsInput
+from app.security.dependencies import get_current_user
+from app.database.models import User, RoleEnum
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def mock_auth():
+    def mock_get_current_user():
+        return User(id=1, username="admin", role=RoleEnum.HR_ADMIN)
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 @pytest.fixture
 def mock_artifacts(tmp_path):

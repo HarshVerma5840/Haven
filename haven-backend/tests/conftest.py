@@ -3,8 +3,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from app.main import app
+from app.main import app as fastapi_app
 from app.database.base import Base
+import app.database.models # register models
 from app.dependencies import get_db
 
 # Use in-memory SQLite for tests
@@ -43,7 +44,7 @@ def client(db_session):
         finally:
             pass
             
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
+    fastapi_app.dependency_overrides[get_db] = override_get_db
+    with TestClient(fastapi_app) as test_client:
         yield test_client
-    app.dependency_overrides.clear()
+    fastapi_app.dependency_overrides.clear()

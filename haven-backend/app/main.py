@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import health
 from app.api import predictions
+from app.api import auth
+from app.api import analytics
+from app.api import employees
 from app.config import get_settings
 from app.observability.logging import setup_logging
 import structlog
@@ -34,3 +37,6 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(predictions.router)
+app.include_router(auth.router)
+app.include_router(analytics.router)
+app.include_router(employees.router)
