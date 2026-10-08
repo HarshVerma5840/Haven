@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
-from app.dependencies import get_db
+from app.dependencies import get_db, get_identity_db, get_behavioral_db
 from app.database.models import User, RoleEnum, WeeklyEmployeeMetrics
 from app.security.dependencies import require_hr_admin, require_employee_or_above
 from app.schemas.vault import (
@@ -19,12 +19,12 @@ from app.database.repositories.behavioral_vault_repository import BehavioralVaul
 
 router = APIRouter(prefix="/api/v1/vault", tags=["vault"])
 
-def get_identity_vault_service(db: Session = Depends(get_db)) -> IdentityVaultService:
+def get_identity_vault_service(db: Session = Depends(get_identity_db)) -> IdentityVaultService:
     repo = IdentityVaultRepository(db)
     identity_service = IdentityService()
     return IdentityVaultService(repo, identity_service)
 
-def get_behavioral_vault_service(db: Session = Depends(get_db)) -> BehavioralVaultService:
+def get_behavioral_vault_service(db: Session = Depends(get_behavioral_db)) -> BehavioralVaultService:
     repo = BehavioralVaultRepository(db)
     return BehavioralVaultService(repo)
 
@@ -83,7 +83,9 @@ def get_predictions(
         target_employee = db.query(User).filter(User.employee_hash == employee_hash).first()
         if not target_employee or target_employee.department != current_user.department:
             # Fallback to checking the metrics table directly if User table lacks the mapping
-            metric = db.query(WeeklyEmployeeMetrics).filter(
+            # Metrics live in the behavioral vault!
+            behavioral_db = service.repository.db
+            metric = behavioral_db.query(WeeklyEmployeeMetrics).filter(
                 WeeklyEmployeeMetrics.employee_hash == employee_hash
             ).first()
             if not metric or metric.department != current_user.department:

@@ -25,8 +25,11 @@ def setup_users(db_session):
     metric_sales = WeeklyEmployeeMetrics(employee_hash="hash_sales", week_start_date=date(2026, 10, 5), schema_version="1.0", label_source="test", department="Sales")
     metric_eng = WeeklyEmployeeMetrics(employee_hash="hash_eng", week_start_date=date(2026, 10, 5), schema_version="1.0", label_source="test", department="Engineering")
     
-    db_session.add_all([hr_admin, employee1, employee2, manager_sales, manager_eng, metric_sales, metric_eng])
+    db_session.add_all([hr_admin, employee1, employee2, manager_sales, manager_eng])
     db_session.commit()
+    
+    db_session.behav.add_all([metric_sales, metric_eng])
+    db_session.behav.commit()
     
     return {
         "hr_admin": hr_admin,
@@ -98,11 +101,12 @@ def test_analytical_vault_save_prediction(client, tokens):
         json={
             "employee_hash": "hash_sales",
             "week_start_date": "2026-10-05",
-            "burnout_risk": "High",
-            "probability_low": 0.1,
-            "probability_medium": 0.2,
-            "probability_high": 0.7,
+            "predicted_risk": "High",
+            "low_probability": 0.1,
+            "medium_probability": 0.2,
+            "high_probability": 0.7,
             "shap_explanations": '{"feature1": 0.5}',
+            "model_type": "RandomForest",
             "model_version": "v1.0"
         }
     )
@@ -142,3 +146,41 @@ def test_hr_admin_can_access_aggregate(client, tokens):
         headers={"Authorization": f"Bearer {tokens['hr_admin']}"}
     )
     assert response.status_code == 200
+
+def test_duplicate_prediction_handled_safely(client, tokens):
+    # Send first prediction
+    response1 = client.post(
+        "/api/v1/vault/behavioral/predictions",
+        headers={"Authorization": f"Bearer {tokens['hr_admin']}"},
+        json={
+            "employee_hash": "hash_sales",
+            "week_start_date": "2026-10-12",
+            "predicted_risk": "High",
+            "low_probability": 0.1,
+            "medium_probability": 0.2,
+            "high_probability": 0.7,
+            "model_type": "RandomForest",
+            "model_version": "v2.0"
+        }
+    )
+    assert response1.status_code == 200
+    
+    # Send second prediction with same primary keys but updated values
+    response2 = client.post(
+        "/api/v1/vault/behavioral/predictions",
+        headers={"Authorization": f"Bearer {tokens['hr_admin']}"},
+        json={
+            "employee_hash": "hash_sales",
+            "week_start_date": "2026-10-12",
+            "predicted_risk": "Low",
+            "low_probability": 0.8,
+            "medium_probability": 0.1,
+            "high_probability": 0.1,
+            "model_type": "RandomForest",
+            "model_version": "v2.0"
+        }
+    )
+    assert response2.status_code == 200
+    data = response2.json()
+    assert data["predicted_risk"] == "Low"
+    assert data["low_probability"] == 0.8

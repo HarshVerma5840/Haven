@@ -25,11 +25,12 @@ class IdentityMappingResponse(BaseModel):
 class BurnoutPredictionCreate(BaseModel):
     employee_hash: str
     week_start_date: date
-    burnout_risk: str
-    probability_low: float
-    probability_medium: float
-    probability_high: float
+    predicted_risk: str
+    low_probability: float
+    medium_probability: float
+    high_probability: float
     shap_explanations: Optional[str] = None
+    model_type: str
     model_version: str
 
 class BurnoutPredictionResponse(BurnoutPredictionCreate):

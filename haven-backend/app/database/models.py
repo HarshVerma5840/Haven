@@ -75,12 +75,6 @@ class WeeklyEmployeeMetrics(Base):
     
     burnout_score = Column(Float)
     burnout_risk = Column(String)
-    
-    probability_low = Column(Float)
-    probability_medium = Column(Float)
-    probability_high = Column(Float)
-    shap_explanations = Column(String)
-    model_version = Column(String)
     schema_version = Column(String, nullable=False)
     data_completeness = Column(Float)
     source_timestamp = Column(DateTime)
@@ -144,9 +138,9 @@ class BurnoutPrediction(Base):
     week_start_date = Column(Date, nullable=False)
     
     predicted_risk = Column(String, nullable=False)
-    probability_low = Column(Float, nullable=False)
-    probability_medium = Column(Float, nullable=False)
-    probability_high = Column(Float, nullable=False)
+    low_probability = Column(Float, nullable=False)
+    medium_probability = Column(Float, nullable=False)
+    high_probability = Column(Float, nullable=False)
     
     shap_explanations = Column(String, nullable=True) # Stored as JSON string
     

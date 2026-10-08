@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     debug: bool = True
     
     database_url: str = "sqlite:///./haven_test.db"
+    identity_database_url: str = "sqlite:///./haven_identity.db"
+    behavioral_database_url: str = "sqlite:///./haven_behavioral.db"
     
     jwt_secret: str = "test_secret"
     jwt_algorithm: str = "HS256"
