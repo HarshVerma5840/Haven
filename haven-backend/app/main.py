@@ -40,3 +40,6 @@ app.include_router(predictions.router)
 app.include_router(auth.router)
 app.include_router(analytics.router)
 app.include_router(employees.router)
+
+from app.api import vault
+app.include_router(vault.router)

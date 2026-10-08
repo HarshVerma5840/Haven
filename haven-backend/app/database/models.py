@@ -76,6 +76,11 @@ class WeeklyEmployeeMetrics(Base):
     burnout_score = Column(Float)
     burnout_risk = Column(String)
     
+    probability_low = Column(Float)
+    probability_medium = Column(Float)
+    probability_high = Column(Float)
+    shap_explanations = Column(String)
+    model_version = Column(String)
     schema_version = Column(String, nullable=False)
     data_completeness = Column(Float)
     source_timestamp = Column(DateTime)
@@ -118,3 +123,39 @@ class WeeklyEmployeeMetrics(Base):
         CheckConstraint('travel_days >= 0', name='chk_travel_days'),
         CheckConstraint('payroll_issue_count >= 0', name='chk_payroll_issue_count'),
     )
+
+class IdentityMapping(Base):
+    __tablename__ = 'identity_mappings'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    employee_hash = Column(String, unique=True, nullable=False, index=True)
+    email = Column(String, nullable=True) # encrypted
+    github_username = Column(String, nullable=True) # encrypted
+    hrms_employee_id = Column(String, nullable=True) # encrypted
+    
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+class BurnoutPrediction(Base):
+    __tablename__ = 'burnout_predictions'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    employee_hash = Column(String, nullable=False, index=True)
+    week_start_date = Column(Date, nullable=False)
+    
+    predicted_risk = Column(String, nullable=False)
+    probability_low = Column(Float, nullable=False)
+    probability_medium = Column(Float, nullable=False)
+    probability_high = Column(Float, nullable=False)
+    
+    shap_explanations = Column(String, nullable=True) # Stored as JSON string
+    
+    model_type = Column(String, nullable=False)
+    model_version = Column(String, nullable=False)
+    
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    
+    __table_args__ = (
+        UniqueConstraint('employee_hash', 'week_start_date', 'model_version', name='uq_prediction_week_version'),
+    )
+
