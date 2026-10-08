@@ -22,3 +22,19 @@ __pycache__/
 # Haven-main zip
 Haven-main.zip
 Haven-main/
+
+# Agent and tool artifacts
+.agents/
+
+# Backups
+.backups/
+backups/*
+!backups/seed/
+!backups/seed/**
+
+# Firebase credentials
+*-firebase-adminsdk-*.json
+*firebase*.json
+
+# TypeScript build info
+*.tsbuildinfo
