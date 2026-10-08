@@ -7,3 +7,14 @@ personal documentations/
 
 # Virtual environment
 .venv/
+venv/
+
+# Python caching & DBs
+__pycache__/
+*.pyc
+*.db
+.pytest_cache/
+
+# Haven-main zip
+Haven-main.zip
+Haven-main/
