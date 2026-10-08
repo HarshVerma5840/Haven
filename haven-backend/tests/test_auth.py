@@ -13,11 +13,20 @@ def setup_users(db_session):
     db_session.query(User).delete()
     db_session.add(User(username="hr", password_hash=get_password_hash("pass"), role=RoleEnum.HR_ADMIN))
     db_session.add(User(username="mgr1", password_hash=get_password_hash("pass"), role=RoleEnum.MANAGER, department="Engineering"))
-    db_session.add(User(username="emp1", password_hash=get_password_hash("pass"), role=RoleEnum.EMPLOYEE, employee_hash="hash1"))
-    db_session.add(User(username="emp2", password_hash=get_password_hash("pass"), role=RoleEnum.EMPLOYEE, employee_hash="hash2"))
+    db_session.add(User(username="emp1", password_hash=get_password_hash("pass"), role=RoleEnum.EMPLOYEE, employee_hash="hash1", department="Engineering"))
+    db_session.add(User(username="emp2", password_hash=get_password_hash("pass"), role=RoleEnum.EMPLOYEE, employee_hash="hash2", department="Sales"))
     db_session.add(User(username="inactive_emp", password_hash=get_password_hash("pass"), role=RoleEnum.EMPLOYEE, employee_hash="hash3", is_active=False))
     db_session.commit()
+    
+    # Also add WeeklyEmployeeMetrics for manager RBAC testing
+    from app.database.models import WeeklyEmployeeMetrics
+    from datetime import date
+    db_session.behav.add(WeeklyEmployeeMetrics(employee_hash="hash1", department="Engineering", week_start_date=date(2023, 10, 1), schema_version="1", label_source="test"))
+    db_session.behav.add(WeeklyEmployeeMetrics(employee_hash="hash2", department="Sales", week_start_date=date(2023, 10, 1), schema_version="1", label_source="test"))
+    db_session.behav.commit()
+    
     yield
+
 
 def test_login_success(client):
     response = client.post("/api/v1/auth/token", data={"username": "hr", "password": "pass"})
@@ -91,7 +100,7 @@ def test_rbac_manager_success(client):
     service.predict.return_value = ("Low", {"Low": 0.8, "Medium": 0.1, "High": 0.1}, "RF", "1.0")
     app.dependency_overrides[get_model_service] = lambda: service
     
-    payload = {"metrics": {"employee_hash": "hash_any", "week_start_date": "2023-10-01", "department": "Engineering"}}
+    payload = {"metrics": {"employee_hash": "hash1", "week_start_date": "2023-10-01", "department": "Engineering"}}
     res = client.post("/api/v1/predictions", json=payload, headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 200
     
@@ -100,7 +109,8 @@ def test_rbac_manager_success(client):
 def test_rbac_manager_failure(client):
     token = client.post("/api/v1/auth/token", data={"username": "mgr1", "password": "pass"}).json()["access_token"]
     
-    payload = {"metrics": {"employee_hash": "hash_any", "week_start_date": "2023-10-01", "department": "Sales"}}
+    # Manager tries to access Sales employee but spoofs the department in payload to match their own
+    payload = {"metrics": {"employee_hash": "hash2", "week_start_date": "2023-10-01", "department": "Engineering"}}
     res = client.post("/api/v1/predictions", json=payload, headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 403
     assert "their department" in res.json()["detail"]
@@ -108,6 +118,7 @@ def test_rbac_manager_failure(client):
 def test_rbac_hr_admin_success(client):
     token = client.post("/api/v1/auth/token", data={"username": "hr", "password": "pass"}).json()["access_token"]
     
+    # HR_ADMIN hits prediction route
     service = MagicMock(spec=ModelService)
     service.is_available.return_value = True
     service.predict.return_value = ("Low", {"Low": 0.8, "Medium": 0.1, "High": 0.1}, "RF", "1.0")
@@ -118,3 +129,34 @@ def test_rbac_hr_admin_success(client):
     assert res.status_code == 200
     
     app.dependency_overrides.clear()
+
+def test_hr_admin_analytics_access(client):
+    token = client.post("/api/v1/auth/token", data={"username": "hr", "password": "pass"}).json()["access_token"]
+    res = client.get("/api/v1/analytics/", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200
+
+def test_manager_analytics_rejected(client):
+    token = client.post("/api/v1/auth/token", data={"username": "mgr1", "password": "pass"}).json()["access_token"]
+    res = client.get("/api/v1/analytics/", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 403
+
+def test_privileged_routes_persist_after_restart(client):
+    # This test verifies that the secret key is static and tokens survive server restarts
+    # by generating a token and verifying it directly against the app config.
+    from app.config import get_settings
+    from app.security.jwt import create_access_token
+    import importlib
+    import app.config
+    
+    settings = get_settings()
+    token = create_access_token(data={"username": "hr"})
+    
+    # Simulate restart by reloading config
+    importlib.reload(app.config)
+    new_settings = app.config.get_settings()
+    
+    assert settings.jwt_secret == new_settings.jwt_secret
+    assert settings.jwt_secret != "random", "JWT secret should be statically defined for persistence"
+    
+    res = client.get("/api/v1/analytics/", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200

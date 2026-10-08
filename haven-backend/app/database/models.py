@@ -14,7 +14,7 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     role = Column(SQLAlchemyEnum(RoleEnum), nullable=False)
-    employee_hash = Column(String, nullable=True) # For EMPLOYEE
+    employee_hash = Column(String, index=True, nullable=True) # For EMPLOYEE
     department = Column(String, nullable=True) # For MANAGER
     is_active = Column(Boolean, default=True, nullable=False)
     

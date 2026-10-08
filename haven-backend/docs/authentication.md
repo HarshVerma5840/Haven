@@ -7,9 +7,11 @@ The Haven backend uses **JWT (JSON Web Tokens)** for stateless authentication. S
 
 ## Role Permissions
 The system enforces three strict roles natively:
-1. **`EMPLOYEE`**: Can only access their own specific prediction and metrics records (enforced via strict `employee_hash` payload matching).
-2. **`MANAGER`**: Can access prediction and employee records belonging strictly to their assigned `department`.
-3. **`HR_ADMIN`**: Has unrestricted access to aggregate metrics, analytics, and broad model predictions.
+1. **`EMPLOYEE`**: Can only access their own specific behavioral records and predictions (enforced via strict `employee_hash` matching). Employees cannot access the Identity Vault.
+2. **`MANAGER`**: Can access behavioral records and predictions belonging strictly to their assigned `department`. The employee's actual department is securely verified directly against the Behavioral Vault database; manager access cannot be spoofed by altering the department field in the API request payload. Managers cannot access the Identity Vault.
+3. **`HR_ADMIN`**: Has unrestricted access to aggregate metrics, analytics, and broad model predictions. HR_ADMIN is also the only role authorized to provision new privileged accounts (MANAGER or HR_ADMIN) via the `/api/v1/auth/users` endpoint, and create raw identity mappings in the Identity Vault.
+
+**Public Registration**: The public `/api/v1/auth/register` endpoint is strictly locked down to prevent privilege escalation; it can only provision new `EMPLOYEE` accounts.
 
 ## Environment Variables
 The following environment variables must be configured in `.env` for authentication to function properly:

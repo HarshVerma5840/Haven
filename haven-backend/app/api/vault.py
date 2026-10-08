@@ -79,16 +79,11 @@ def get_predictions(
         raise HTTPException(status_code=403, detail="Employees can only access their own records.")
     
     if current_user.role == RoleEnum.MANAGER:
-        # Check if the employee belongs to the manager's department
-        target_employee = db.query(User).filter(User.employee_hash == employee_hash).first()
-        if not target_employee or target_employee.department != current_user.department:
-            # Fallback to checking the metrics table directly if User table lacks the mapping
-            # Metrics live in the behavioral vault!
-            behavioral_db = service.repository.db
-            metric = behavioral_db.query(WeeklyEmployeeMetrics).filter(
-                WeeklyEmployeeMetrics.employee_hash == employee_hash
-            ).first()
-            if not metric or metric.department != current_user.department:
-                raise HTTPException(status_code=403, detail="Managers can only access records for their department.")
+        behavioral_db = service.repository.db
+        metric = behavioral_db.query(WeeklyEmployeeMetrics).filter(
+            WeeklyEmployeeMetrics.employee_hash == employee_hash
+        ).first()
+        if not metric or metric.department != current_user.department:
+            raise HTTPException(status_code=403, detail="Managers can only access records for their department.")
     
     return service.get_predictions(employee_hash=employee_hash, skip=skip, limit=limit)

@@ -30,6 +30,41 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 
 @router.post("/register", response_model=UserResponse)
 def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
+    if user_in.role.value != "EMPLOYEE":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Public registration is restricted to the EMPLOYEE role."
+        )
+
+    user = db.query(User).filter(User.username == user_in.username).first()
+    if user:
+        raise HTTPException(
+            status_code=400,
+            detail="Username already registered"
+        )
+    
+    password_hash = get_password_hash(user_in.password)
+    db_user = User(
+        username=user_in.username,
+        password_hash=password_hash,
+        role=user_in.role.value,
+        employee_hash=user_in.employee_hash,
+        department=user_in.department,
+        is_active=user_in.is_active
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+from app.security.dependencies import require_hr_admin
+
+@router.post("/users", response_model=UserResponse)
+def create_admin_user(
+    user_in: UserCreate, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_hr_admin)
+):
     user = db.query(User).filter(User.username == user_in.username).first()
     if user:
         raise HTTPException(

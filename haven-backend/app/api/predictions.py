@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, status
+from sqlalchemy.orm import Session
 from app.schemas.prediction import PredictionRequest, PredictionResponse
 from app.services.model_service import ModelService, ModelNotAvailableError
 from app.security.dependencies import require_employee_or_above
+from app.dependencies import get_db, get_behavioral_db
 from app.database.models import User, RoleEnum
 import structlog
 
@@ -15,14 +17,17 @@ def get_model_service() -> ModelService:
 def predict_burnout(
     request: PredictionRequest, 
     service: ModelService = Depends(get_model_service),
-    current_user: User = Depends(require_employee_or_above)
+    current_user: User = Depends(require_employee_or_above),
+    behavioral_db: Session = Depends(get_behavioral_db)
 ):
     if current_user.role == RoleEnum.EMPLOYEE:
         if current_user.employee_hash != request.metrics.employee_hash:
             raise HTTPException(status_code=403, detail="Employees can only access their own records.")
             
     elif current_user.role == RoleEnum.MANAGER:
-        if not current_user.department or current_user.department != request.metrics.department:
+        from app.database.models import WeeklyEmployeeMetrics
+        target_employee_metrics = behavioral_db.query(WeeklyEmployeeMetrics).filter(WeeklyEmployeeMetrics.employee_hash == request.metrics.employee_hash).first()
+        if not target_employee_metrics or target_employee_metrics.department != current_user.department:
             raise HTTPException(status_code=403, detail="Managers can only access records for their department.")
             
     if not service.is_available():
