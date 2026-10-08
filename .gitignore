@@ -7,6 +7,10 @@ personal documentations/
 
 # Virtual environment
 .venv/
+
+dataset/
+haven-backend/models/
+PROJECT_CONTEXT.md
 venv/
 
 # Python caching & DBs

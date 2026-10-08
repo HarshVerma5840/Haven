@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import health
+from app.api import predictions
 from app.config import get_settings
 from app.observability.logging import setup_logging
 import structlog
@@ -32,3 +33,4 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(predictions.router)
