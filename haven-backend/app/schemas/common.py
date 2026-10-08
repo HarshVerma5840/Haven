@@ -7,3 +7,4 @@ class HealthResponse(BaseModel):
 class ReadyResponse(BaseModel):
     status: str
     database: str
+    model: str | None = None

@@ -13,7 +13,7 @@ The backend expects the model artifacts to be located exactly inside the `haven-
      - `"version"`: The model version.
      - `"model_type"`: e.g., `"Random Forest"`.
      - `"target"`: `"burnout_risk"`.
-     - `"sklearn_version"`: Version of `scikit-learn` used during training.
+     - `"sklearn_version"`: Version of `scikit-learn` used during training. The backend requires `scikit-learn==1.6.1` to correctly deserialize the `.joblib` pipeline without version mismatch errors.
 3. `feature_columns.json`
    - A JSON object detailing the exact feature names and strict order the model expects. Must contain `numeric_columns` and `categorical_columns` arrays.
    - Example:
@@ -44,6 +44,23 @@ Run the FastAPI application:
 uvicorn app.main:app --reload --port 8000
 ```
 The model artifacts are lazily loaded into memory when the `ModelService` is first instantiated, or immediately on server boot if dependency injection initializes it.
+
+### Readiness Check
+
+You can verify that the API is up and that the model artifacts have loaded successfully by hitting the readiness endpoint:
+
+**Request:**
+`GET /ready`
+
+**Response (`200 OK`):**
+```json
+{
+  "status": "ok",
+  "database": "ok",
+  "model": "ok"
+}
+```
+If artifacts are missing or malformed, `"model"` will return `"unavailable"` and the overall `"status"` will be `"error"`.
 
 ## Calling the Prediction Endpoint
 

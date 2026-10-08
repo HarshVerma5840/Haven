@@ -66,3 +66,30 @@ def test_response_serialization():
     assert data["probabilities"]["Low"] == 0.2
     assert data["schema_version"] == "1.0"
     assert isinstance(data["prediction_timestamp"], datetime)
+
+def test_extra_fields_ignored():
+    payload = {
+        "metrics": {
+            "employee_hash": "hash123",
+            "week_start_date": "2023-10-01",
+            "department": "Engineering",
+            "extra_unwanted_field": "Should be ignored",
+            "another_extra_field": 123
+        }
+    }
+    request = PredictionRequest(**payload)
+    # The extra fields are ignored by Pydantic's default BaseModel config
+    assert not hasattr(request.metrics, "extra_unwanted_field")
+    assert request.metrics.employee_hash == "hash123"
+
+def test_missing_optional_fields():
+    payload = {
+        "metrics": {
+            "employee_hash": "hash123",
+            "week_start_date": "2023-10-01"
+            # No department or avg_daily_work_hours
+        }
+    }
+    request = PredictionRequest(**payload)
+    assert request.metrics.department is None
+    assert request.metrics.avg_daily_work_hours is None

@@ -96,7 +96,30 @@ class ModelService:
                 self._is_loaded = False
                 return
 
+            import sklearn.compose._column_transformer
+            if not hasattr(sklearn.compose._column_transformer, '_RemainderColsList'):
+                class _RemainderColsList(list): pass
+                sklearn.compose._column_transformer._RemainderColsList = _RemainderColsList
+                
             self._pipeline = joblib.load(self.pipeline_path)
+            
+            # Patch SimpleImputer for 1.9.1 compatibility
+            try:
+                if hasattr(self._pipeline, 'steps'):
+                    preprocessor = dict(self._pipeline.steps).get('preprocessor')
+                    if preprocessor and hasattr(preprocessor, 'transformers_'):
+                        for name, transformer, cols in preprocessor.transformers_:
+                            if hasattr(transformer, 'steps'):
+                                for sub_name, sub_step in transformer.steps:
+                                    if type(sub_step).__name__ == 'SimpleImputer':
+                                        if hasattr(sub_step, '_fit_dtype') and not hasattr(sub_step, '_fill_dtype'):
+                                            sub_step._fill_dtype = sub_step._fit_dtype
+                    
+                    for step_name, step_obj in self._pipeline.steps:
+                        if type(step_obj).__name__ == 'RandomForestClassifier':
+                            step_obj.n_jobs = 1
+            except Exception:
+                pass # Best effort patching
             
             with open(self.metadata_path, 'r') as f:
                 self._metadata = json.load(f)

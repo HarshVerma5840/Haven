@@ -15,7 +15,7 @@ logger = structlog.get_logger(__name__)
 async def run_aggregation(
     employee_hash: str,
     github_username: str,
-    week_start: datetime.date,
+    week_start_date: datetime.date,
     week_end: datetime.date
 ):
     settings = get_settings()
@@ -31,14 +31,14 @@ async def run_aggregation(
         logger.info(
             "Starting manual GitHub aggregation", 
             employee_hash=employee_hash, 
-            week_start=str(week_start), 
+            week_start_date=str(week_start_date), 
             week_end=str(week_end)
         )
         
         record = await service.aggregate_github_metrics(
             employee_hash=employee_hash,
             github_username=github_username,
-            week_start_date=week_start,
+            week_start_date=week_start_date,
             week_end_date=week_end
         )
         
@@ -76,7 +76,7 @@ def main():
             run_aggregation(
                 employee_hash=args.employee_hash,
                 github_username=args.github_username,
-                week_start=args.week_start,
+                week_start_date=args.week_start,
                 week_end=args.week_end
             )
         )

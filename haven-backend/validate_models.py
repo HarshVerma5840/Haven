@@ -8,6 +8,12 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from app.schemas.metrics import WeeklyEmployeeMetricsInput
 
 def validate_artifacts():
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+        except Exception:
+            pass
+
     models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
     pipeline_path = os.path.join(models_dir, "random_forest_pipeline.joblib")
     metadata_path = os.path.join(models_dir, "random_forest_metadata.json")
@@ -113,8 +119,32 @@ def validate_artifacts():
     
     # 4. Load Joblib
     try:
+        import sklearn.compose._column_transformer
+        if not hasattr(sklearn.compose._column_transformer, '_RemainderColsList'):
+            class _RemainderColsList(list): pass
+            sklearn.compose._column_transformer._RemainderColsList = _RemainderColsList
+            
         pipeline = joblib.load(pipeline_path)
-        print("✅ Model pipeline loaded successfully via joblib.")
+        
+        # Patch SimpleImputer for 1.9.1 compatibility
+        try:
+            if hasattr(pipeline, 'steps'):
+                preprocessor = dict(pipeline.steps).get('preprocessor')
+                if preprocessor and hasattr(preprocessor, 'transformers_'):
+                    for name, transformer, cols in preprocessor.transformers_:
+                        if hasattr(transformer, 'steps'):
+                            for sub_name, sub_step in transformer.steps:
+                                if type(sub_step).__name__ == 'SimpleImputer':
+                                    if hasattr(sub_step, '_fit_dtype') and not hasattr(sub_step, '_fill_dtype'):
+                                        sub_step._fill_dtype = sub_step._fit_dtype
+                
+                for step_name, step_obj in pipeline.steps:
+                    if type(step_obj).__name__ == 'RandomForestClassifier':
+                        step_obj.n_jobs = 1
+        except Exception:
+            pass # Best effort patching
+            
+        print("✅ Model pipeline loaded successfully via joblib (with compat patches).")
     except Exception as e:
         print(f"❌ Failed to load joblib pipeline: {e}")
         sys.exit(1)

@@ -49,7 +49,7 @@ async def test_successful_aggregation(mock_client_cls, mock_extractor_cls, mock_
         record = await run_aggregation(
             employee_hash="hash_success",
             github_username="testuser",
-            week_start=datetime.date(2026, 10, 5),
+            week_start_date=datetime.date(2026, 10, 5),
             week_end=datetime.date(2026, 10, 11)
         )
         
@@ -87,7 +87,7 @@ async def test_github_api_failure(mock_client_cls, mock_extractor_cls, mock_sess
             await run_aggregation(
                 employee_hash="hash_fail",
                 github_username="testuser",
-                week_start=datetime.date(2026, 10, 5),
+                week_start_date=datetime.date(2026, 10, 5),
                 week_end=datetime.date(2026, 10, 11)
             )
             
@@ -108,7 +108,7 @@ async def test_database_failure(mock_client_cls, mock_extractor_cls, mock_sessio
             await run_aggregation(
                 employee_hash="hash_db_fail",
                 github_username="testuser",
-                week_start=datetime.date(2026, 10, 5),
+                week_start_date=datetime.date(2026, 10, 5),
                 week_end=datetime.date(2026, 10, 11)
             )
             
