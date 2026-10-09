@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     
     vault_salt: str = "test_salt_12345678"
     encryption_key: str = "test_encryption_key_12345678901234567890123"
+    haven_encryption_private_key: str = ""
+    haven_encryption_key_id: str = "haven-key-2026-01"
     
     log_level: str = "INFO"
     cors_origins: list[str] = ["*"]
