@@ -99,8 +99,22 @@ You can explicitly request a SHAP explanation for the prediction by setting `inc
     "disclaimer": "SHAP values represent feature contributions to the model's prediction and are not causal explanations.",
     "explanations": {
       "High": {
-        "top_positive": [{"feature": "avg_daily_work_hours", "impact": 0.034}],
-        "top_negative": [{"feature": "overtime_hours", "impact": -0.044}]
+        "top_positive": [
+          {
+            "feature": "avg_daily_work_hours",
+            "contribution": 0.034,
+            "direction": "positive",
+            "description": "Avg Daily Work Hours increases the probability of High risk."
+          }
+        ],
+        "top_negative": [
+          {
+            "feature": "department = Engineering",
+            "contribution": -0.044,
+            "direction": "negative",
+            "description": "Department decreases the probability of High risk."
+          }
+        ]
       }
     }
   }

@@ -89,3 +89,25 @@ def predict_burnout(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Prediction failed due to an internal error."
         )
+
+@router.post("/predictions/explain", response_model=PredictionResponse)
+def explain_burnout(
+    request: PredictionRequest, 
+    service: ModelService = Depends(get_model_service),
+    shap_service: ShapService = Depends(get_shap_service),
+    vault_service: BehavioralVaultService = Depends(get_behavioral_vault_service),
+    current_user: User = Depends(require_employee_or_above),
+    behavioral_db: Session = Depends(get_behavioral_db)
+):
+    """
+    Returns the prediction alongside the SHAP explanations and saves it to the behavioral vault.
+    """
+    request.include_explanations = True
+    return predict_burnout(
+        request=request,
+        service=service,
+        shap_service=shap_service,
+        vault_service=vault_service,
+        current_user=current_user,
+        behavioral_db=behavioral_db
+    )

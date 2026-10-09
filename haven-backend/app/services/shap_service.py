@@ -119,20 +119,13 @@ class ShapService:
     def is_available(self) -> bool:
         return self._is_loaded
 
-    def _get_readable_feature_names(self) -> List[str]:
+    def _get_raw_feature_names(self) -> List[str]:
         preprocessor = self._pipeline.named_steps.get('preprocessor')
         if not preprocessor:
             return self._feature_columns
             
         try:
-            raw_names = preprocessor.get_feature_names_out()
-            # Clean up prefixes like 'numeric__' or 'categorical__'
-            clean_names = []
-            for name in raw_names:
-                if '__' in name:
-                    name = name.split('__', 1)[1]
-                clean_names.append(name)
-            return clean_names
+            return list(preprocessor.get_feature_names_out())
         except Exception:
             # Fallback
             return [f"feature_{i}" for i in range(1000)]
@@ -161,12 +154,12 @@ class ShapService:
         
         # 4. Get SHAP values
         shap_values = self._explainer.shap_values(X_transformed)
-        feature_names = self._get_readable_feature_names()
-        
-        # shap_values is typically a list of arrays (one for each class) for Random Forest
-        # Each array is of shape (n_samples, n_features)
+        raw_feature_names = self._get_raw_feature_names()
         
         explanations = {}
+        
+        # Pre-sort original feature columns by length descending to match longest prefix first
+        sorted_feature_cols = sorted(self._feature_columns, key=len, reverse=True)
         
         for i, class_name in enumerate(self._classes):
             if isinstance(shap_values, list):
@@ -176,9 +169,34 @@ class ShapService:
             else:
                 class_shap = shap_values[0] # Binary classification fallback
                 
-            # Combine feature names with their shap values
-            feature_impacts = list(zip(feature_names, class_shap))
-            
+            # Aggregate SHAP values
+            aggregated_shap = {}
+            for raw_name, impact in zip(raw_feature_names, class_shap):
+                # Clean up prefixes like 'numeric__' or 'categorical__'
+                clean_name = raw_name.split('__', 1)[1] if '__' in raw_name else raw_name
+                
+                # Find base column
+                base_col = None
+                for col in sorted_feature_cols:
+                    if clean_name == col or clean_name.startswith(col + '_'):
+                        base_col = col
+                        break
+                
+                if not base_col:
+                    base_col = clean_name
+                    
+                aggregated_shap[base_col] = aggregated_shap.get(base_col, 0.0) + impact
+                
+            # Format feature names and impacts
+            feature_impacts = []
+            for base_col, impact in aggregated_shap.items():
+                val = filtered_metrics.get(base_col)
+                if isinstance(val, str):
+                    readable_name = f"{base_col} = {val}"
+                else:
+                    readable_name = base_col
+                feature_impacts.append((readable_name, impact))
+                
             # Sort by absolute impact for ranking, but keep original value
             sorted_impacts = sorted(feature_impacts, key=lambda x: abs(x[1]), reverse=True)
             
@@ -186,10 +204,23 @@ class ShapService:
             top_negative = []
             
             for feat, impact in sorted_impacts:
+                direction = "positive" if impact > 0 else "negative"
+                action = "increases" if impact > 0 else "decreases"
+                # Strip formulaic part for description
+                clean_desc_feat = feat.split(' = ')[0].replace('_', ' ').title()
+                readable_description = f"{clean_desc_feat} {action} the probability of {class_name} risk."
+                
+                item = {
+                    "feature": feat,
+                    "contribution": float(impact),
+                    "direction": direction,
+                    "description": readable_description
+                }
+                
                 if impact > 0 and len(top_positive) < top_k:
-                    top_positive.append({"feature": feat, "impact": float(impact)})
+                    top_positive.append(item)
                 elif impact < 0 and len(top_negative) < top_k:
-                    top_negative.append({"feature": feat, "impact": float(impact)})
+                    top_negative.append(item)
                     
             explanations[str(class_name)] = {
                 "top_positive": top_positive,
