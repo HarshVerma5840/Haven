@@ -249,73 +249,9 @@ frappe.ui.form.on("Employee", {
 		});
 
 		frm.trigger("add_assignment_actions");
-		frm.trigger("add_provisioning_action");
 	},
 
-	add_provisioning_action: function (frm) {
-		if (frm.is_new() || !frm.has_perm("write")) return;
 
-		if (frm.doc.firebase_provisioning_status !== "Provisioned") {
-			frm.add_custom_button(__("Provision Login"), () => {
-				frappe.call({
-					method: "hrms.api.employee_provisioning.provision_employee",
-					args: {
-						employee: frm.doc.name,
-						send_invitation: 1,
-					},
-					freeze: true,
-					freeze_message: __("Provisioning login..."),
-					callback: (response) => {
-						const status = response.message?.status;
-						if (status === "Provisioned") {
-							frappe.show_alert({
-								message: __("Login provisioned"),
-								indicator: "green",
-							});
-						} else if (status === "Retry Required") {
-							frappe.msgprint({
-								message: response.message?.message || __("Provisioning failed and can be retried."),
-								indicator: "orange",
-								title: __("Retry Required"),
-							});
-						}
-						frm.reload_doc();
-					},
-					error: () => frm.reload_doc(),
-				});
-			});
-		}
-
-		if (!frm.doc.user_id) return;
-
-		frm.add_custom_button(__("Resend Invitation"), () => {
-			frappe.call({
-				method: "hrms.api.employee_provisioning.resend_invitation",
-				args: {
-					employee: frm.doc.name,
-				},
-				freeze: true,
-				freeze_message: __("Queueing invitation..."),
-				callback: (response) => {
-					const invitationStatus = response.message?.invitation_status;
-					if (response.message?.status === "Retry Required") {
-						frappe.msgprint({
-							message: __("Invitation could not be queued. Check configuration and retry."),
-							indicator: "orange",
-							title: __("Retry Required"),
-						});
-					} else {
-						frappe.show_alert({
-							message: __("Invitation {0}", [invitationStatus || __("queued")]),
-							indicator: "green",
-						});
-					}
-					frm.reload_doc();
-				},
-				error: () => frm.reload_doc(),
-			});
-		});
-	},
 
 	add_assignment_actions: async function (frm) {
 		if (frm.is_new() || frm.doc.status !== "Active") return;

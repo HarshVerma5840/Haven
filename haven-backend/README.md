@@ -36,11 +36,12 @@ cp .env.example .env
 ```
 Fill in the necessary values. The application will use safe defaults for development if certain values are omitted, but will fail if required production secrets are missing in a production environment.
 
-### 5. Run Alembic migrations
+### 5. Run Database Migrations & Seed Data
 
-Initialize the database schema:
+Initialize the PostgreSQL schemas across the Three-Vault databases and seed the initial users:
 ```bash
-alembic upgrade head
+python run_migrations.py
+python seed.py
 ```
 
 ### 6. Run the API

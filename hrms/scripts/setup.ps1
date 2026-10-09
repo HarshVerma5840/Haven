@@ -39,12 +39,7 @@ if (-not (Test-Path $envPath)) {
     }
 }
 
-# Detect Firebase service account JSON if present
-$fbFiles = Get-ChildItem -Path $repoRoot -File -Filter "*-firebase-adminsdk-*.json" -ErrorAction SilentlyContinue
-if ($fbFiles -and (Get-Content $envPath | Where-Object { $_ -match "^FIREBASE_ADMIN_CREDENTIALS_FILE=\s*$" })) {
     $fbFile = $fbFiles[0].Name
-    (Get-Content $envPath) -replace "^FIREBASE_ADMIN_CREDENTIALS_FILE=.*", "FIREBASE_ADMIN_CREDENTIALS_FILE=/workspace/$fbFile" | Set-Content $envPath
-    Write-Host "[OK] Configured FIREBASE_ADMIN_CREDENTIALS_FILE to /workspace/$fbFile" -ForegroundColor Green
 }
 
 # Read configured ports
@@ -131,7 +126,6 @@ try {
 
 $fbStatusOk = $false
 try {
-    $resp = Invoke-WebRequest -Uri "http://localhost:$webPort/api/method/hrms.api.firebase_auth.firebase_status" -UseBasicParsing -TimeoutSec 10 -ErrorAction SilentlyContinue
     if ($resp.StatusCode -eq 200) { $fbStatusOk = $true }
 } catch {}
 
@@ -147,8 +141,6 @@ Write-Host ""
 Write-Host "  Frappe Desk / Admin Portal:" -ForegroundColor Yellow
 Write-Host "  http://localhost:$webPort/app" -ForegroundColor White
 Write-Host ""
-Write-Host "  Firebase Status API:" -ForegroundColor Yellow
-Write-Host "  http://localhost:$webPort/api/method/hrms.api.firebase_auth.firebase_status" -ForegroundColor White
 Write-Host ""
 Write-Host "  Default Admin Credentials:" -ForegroundColor Yellow
 Write-Host "  User: Administrator  |  Password: admin" -ForegroundColor White

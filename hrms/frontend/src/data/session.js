@@ -3,7 +3,7 @@ import { createResource, call } from "frappe-ui"
 import { userResource } from "./user"
 import { employeeResource } from "./employee"
 import router from "@/router"
-import { firebaseLogin, firebaseLogout, restoreFirebaseUser } from "./firebase"
+
 
 export function sessionUser() {
 	let cookies = new URLSearchParams(document.cookie.split("; ").join("&"))
@@ -26,28 +26,12 @@ function handleLogin(response, redirect = true) {
 
 export const session = reactive({
 	login: async (email, password) => {
-		try {
-			const idToken = await firebaseLogin(email, password)
-			const response = await call("hrms.api.firebase_auth.login_with_firebase_token", { id_token: idToken })
-			handleLogin(response)
-			return response
-		} catch (fbError) {
-			try {
-				const response = await call("login", { usr: email, pwd: password })
-				handleLogin(response)
-				return response
-			} catch {
-				throw fbError
-			}
-		}
+		const response = await call("login", { usr: email, pwd: password })
+		handleLogin(response)
+		return response
 	},
 	restore: async () => {
 		if (sessionUser()) return
-		const user = await restoreFirebaseUser()
-		if (!user) return
-		const idToken = await user.getIdToken()
-		const response = await call("hrms.api.firebase_auth.login_with_firebase_token", { id_token: idToken })
-		handleLogin(response, false)
 	},
 	otp: async (tmp_id, otp) => {
 		const response = await call("login", { tmp_id, otp })
@@ -58,7 +42,7 @@ export const session = reactive({
 		url: "logout",
 		method: "POST",
 		async onSuccess() {
-			await firebaseLogout()
+
 			userResource.reset()
 			employeeResource.reset()
 
@@ -67,7 +51,7 @@ export const session = reactive({
 			window.location.reload()
 		},
 		async onError() {
-			await firebaseLogout()
+
 			userResource.reset()
 			employeeResource.reset()
 			session.user = null

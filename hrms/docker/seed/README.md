@@ -13,4 +13,3 @@ Expected files are the normal output from:
 bench --site hrms.localhost backup --with-files --compress
 ```
 
-Only commit development/demo data that is safe for the whole team. Do not commit real employee data, Firebase Admin service-account JSON, SMTP passwords, or production backups.

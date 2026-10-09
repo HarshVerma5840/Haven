@@ -94,9 +94,7 @@ fi
 cd /home/frappe/frappe-bench
 export PYTHONPATH="/home/frappe/frappe-bench/apps:${PYTHONPATH:-}"
 
-if ! /home/frappe/frappe-bench/env/bin/python -c 'import firebase_admin' 2>/dev/null; then
-    /home/frappe/frappe-bench/env/bin/pip install --quiet 'firebase-admin>=6.5,<7'
-fi
+
 
 # Keep copied editable package metadata valid after a first-run bootstrap.
 find /home/frappe/frappe-bench/env -type f -print0 2>/dev/null \

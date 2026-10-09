@@ -46,12 +46,9 @@ try {
 }
 
 try {
-    $fb = Invoke-WebRequest -Uri "http://localhost:$webPort/api/method/hrms.api.firebase_auth.firebase_status" -UseBasicParsing -TimeoutSec 5
     if ($fb.StatusCode -eq 200) {
-        Write-Host "  [OK] Firebase Auth API: Configured" -ForegroundColor Green
     }
 } catch {
-    Write-Host "  [!] Firebase Auth API: Offline" -ForegroundColor Gray
 }
 
 # Check container state

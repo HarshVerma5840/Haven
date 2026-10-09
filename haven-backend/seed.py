@@ -11,10 +11,7 @@ logger = logging.getLogger(__name__)
 
 def seed_database():
     from app.database.connection import engine, identity_engine, behavioral_engine
-    logger.info("Creating tables...")
-    models.Base.metadata.create_all(bind=engine)
-    models.Base.metadata.create_all(bind=identity_engine)
-    models.Base.metadata.create_all(bind=behavioral_engine)
+    from app.database.connection import engine, identity_engine, behavioral_engine
     
     db: Session = SessionLocal()
     try:
@@ -112,6 +109,30 @@ def seed_database():
                 ).first()
                 if not existing_metric:
                     b_db.add(metric)
+                    
+            # Seed Predictions
+            import json
+            predictions = [
+                models.BurnoutPrediction(employee_hash="alice_hash_xyz", week_start_date=week_start, predicted_risk="Low", low_probability=0.8, medium_probability=0.15, high_probability=0.05, model_type="Random Forest", model_version="1.0", shap_explanations=json.dumps({"avg_daily_work_hours": -0.1})),
+                models.BurnoutPrediction(employee_hash="charlie_hash_xyz", week_start_date=week_start, predicted_risk="Low", low_probability=0.9, medium_probability=0.1, high_probability=0.0, model_type="Random Forest", model_version="1.0"),
+                models.BurnoutPrediction(employee_hash="diana_hash_xyz", week_start_date=week_start, predicted_risk="High", low_probability=0.05, medium_probability=0.2, high_probability=0.75, model_type="Random Forest", model_version="1.0", shap_explanations=json.dumps({"overtime_hours": 0.4})),
+                models.BurnoutPrediction(employee_hash="eve_hash_xyz", week_start_date=week_start, predicted_risk="Medium", low_probability=0.2, medium_probability=0.6, high_probability=0.2, model_type="Random Forest", model_version="1.0"),
+                models.BurnoutPrediction(employee_hash="frank_hash_xyz", week_start_date=week_start, predicted_risk="Low", low_probability=0.85, medium_probability=0.1, high_probability=0.05, model_type="Random Forest", model_version="1.0"),
+                models.BurnoutPrediction(employee_hash="grace_hash_xyz", week_start_date=week_start, predicted_risk="High", low_probability=0.1, medium_probability=0.2, high_probability=0.7, model_type="Random Forest", model_version="1.0", shap_explanations=json.dumps({"overtime_hours": 0.35})),
+                models.BurnoutPrediction(employee_hash="hank_hash_xyz", week_start_date=week_start, predicted_risk="Low", low_probability=0.7, medium_probability=0.2, high_probability=0.1, model_type="Random Forest", model_version="1.0"),
+                models.BurnoutPrediction(employee_hash="ivy_hash_xyz", week_start_date=week_start, predicted_risk="Medium", low_probability=0.3, medium_probability=0.5, high_probability=0.2, model_type="Random Forest", model_version="1.0"),
+                models.BurnoutPrediction(employee_hash="jack_hash_xyz", week_start_date=week_start, predicted_risk="Low", low_probability=0.88, medium_probability=0.1, high_probability=0.02, model_type="Random Forest", model_version="1.0")
+            ]
+            
+            for pred in predictions:
+                existing_pred = b_db.query(models.BurnoutPrediction).filter(
+                    models.BurnoutPrediction.employee_hash == pred.employee_hash,
+                    models.BurnoutPrediction.week_start_date == pred.week_start_date,
+                    models.BurnoutPrediction.model_version == pred.model_version
+                ).first()
+                if not existing_pred:
+                    b_db.add(pred)
+                    
             b_db.commit()
         finally:
             b_db.close()

@@ -7,9 +7,9 @@ class Settings(BaseSettings):
     app_env: str = "development"
     debug: bool = True
     
-    database_url: str = "sqlite:///./haven_test.db"
-    identity_database_url: str = "sqlite:///./haven_identity.db"
-    behavioral_database_url: str = "sqlite:///./haven_behavioral.db"
+    database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/haven"
+    identity_database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/haven_identity"
+    behavioral_database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/haven_behavioral"
     
     jwt_secret: str = "test_secret"
     jwt_algorithm: str = "HS256"
