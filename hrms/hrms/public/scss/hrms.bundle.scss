@@ -1,3 +1,56 @@
 @import "./feedback";
 @import "./circular_progress";
 @import "./hierarchy_chart";
+
+/* ── Hide ERPNext and Framework from the Desk apps screen ── */
+.app-icon[data-app-name="erpnext"],
+.app-card[data-app-name="erpnext"],
+[data-app-name="erpnext"],
+.app-icon[data-app-name="frappe"],
+.app-card[data-app-name="frappe"],
+[data-app-name="frappe"] {
+  display: none !important;
+}
+
+/* Also target by text label as fallback */
+.apps-launcher .app-item .app-title:contains("ERPNext"),
+.apps-launcher .app-item[title="ERPNext"],
+.apps-launcher .app-item .app-title:contains("Framework"),
+.apps-launcher .app-item[title="Framework"],
+a[href="/app/build"] {
+  display: none !important;
+}
+
+/* ── Hide Search, Notifications, Recruitment, Expenses, Tax & Benefits from Left Sidebar / Slider ── */
+.dock {
+  .dock-shortcuts {
+    .navbar-modal-search-mobile,
+    .sidebar-notification,
+    [aria-label="Search"],
+    [aria-label="Notifications"] {
+      display: none !important;
+    }
+  }
+
+  .dock-item[aria-label="Search"],
+  .dock-item[aria-label="Notifications"],
+  .dock-item[aria-label="Recruitment"],
+  .dock-item[aria-label="Expenses"],
+  .dock-item[aria-label="Tax & Benefits"],
+  .dock-item[aria-label="Tax &amp; Benefits"],
+  button[aria-label="Search"],
+  button[aria-label="Notifications"],
+  button[aria-label="Recruitment"],
+  button[aria-label="Expenses"],
+  button[aria-label="Tax & Benefits"],
+  button[aria-label="Tax &amp; Benefits"],
+  [title="Search"],
+  [title="Notifications"],
+  [title="Recruitment"],
+  [title="Expenses"],
+  [title="Tax & Benefits"],
+  [title="Tax &amp; Benefits"] {
+    display: none !important;
+  }
+}
+

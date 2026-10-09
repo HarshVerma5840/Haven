@@ -38,3 +38,6 @@ backups/*
 
 # TypeScript build info
 *.tsbuildinfo
+
+# Playwright MCP session artifacts
+.playwright-mcp/
