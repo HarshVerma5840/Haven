@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     github_workday_start: str = "09:00"
     github_workday_end: str = "17:00"
     
+    redis_url: str = "redis://localhost:6379/0"
+    cache_ttl_prediction: int = 3600 # 1 hour
+    cache_ttl_dashboard: int = 300 # 5 minutes
+    cache_ttl_analytics: int = 86400 # 24 hours
+    
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 @lru_cache

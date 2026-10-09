@@ -86,3 +86,27 @@ def client(db_session):
         yield test_client
         
     fastapi_app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def mock_cache_service_fixture(monkeypatch):
+    """
+    Mock CacheService globally for all tests (except where explicitly overridden)
+    to prevent tests from trying to connect to a real Redis server on localhost
+    and slowing down due to timeouts.
+    """
+    from unittest.mock import MagicMock
+    from app.services.cache_service import CacheService
+    
+    mock_instance = MagicMock(spec=CacheService)
+    mock_instance.is_available.return_value = False
+    mock_instance.get.return_value = None
+    mock_instance.set.return_value = False
+    mock_instance.invalidate.return_value = 0
+    
+    monkeypatch.setattr("app.services.cache_service.get_cache_service", lambda: mock_instance)
+    
+    # We also need to patch CacheService.__init__ to do nothing to avoid redis connection 
+    # when CacheService is explicitly instantiated in tests (e.g. test_cache.py)
+    # Actually wait, test_cache.py explicitly patches redis.from_url so it doesn't matter.
+    return mock_instance

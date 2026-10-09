@@ -123,6 +123,40 @@ You can explicitly request a SHAP explanation for the prediction by setting `inc
 
 > **Security Note**: When `include_explanations` is requested, the prediction and its SHAP explanation will be saved to the Behavioral Vault. Identity variables are excluded from the SHAP calculations to preserve privacy.
 
+## Redis Caching Layer
+
+To improve performance and reduce redundant computations, prediction responses, SHAP explanations, and dashboard analytics are automatically cached in Redis. 
+
+**Important:** Redis is used **strictly for non-persistent caching** of API responses to improve speed. It is **not** used for background workers, task queues (like Celery), or critical storage. 
+
+### Local Redis Setup
+To run Redis locally for development, you can use Docker:
+```bash
+docker run -p 6379:6379 -d redis:7
+```
+
+### Required Redis Variables
+Configure Redis in your `.env` file using the following variables:
+- `REDIS_URL`: Connection string (e.g., `redis://localhost:6379/0`).
+- `CACHE_TTL_PREDICTION`: TTL in seconds for predictions and SHAP explanations (default: 3600).
+- `CACHE_TTL_DASHBOARD`: TTL in seconds for employee/department dashboard summaries (default: 300).
+- `CACHE_TTL_ANALYTICS`: TTL in seconds for NetworkX graphs and complex analytics (default: 86400).
+
+### Cache Namespaces
+Responses are strictly partitioned into distinct namespaces to prevent cache collisions and allow targeted invalidation:
+- **Predictions**: `prediction:{employee_hash}:{week_start_date}:{model_version}:{input_data_hash}`
+- **Explanations**: `explanation:prediction:{employee_hash}:{week_start_date}:{model_version}:{input_data_hash}`
+- **Dashboards**: `analytics:dashboard:{department}:{start_date}:{end_date}:{filters_hash}:{model_version}`
+- **NetworkX Graphs**: `analytics:graph:{graph_type}:{start_date}:{end_date}:{filters_hash}:{analysis_version}`
+
+*Note: The `input_data_hash` and `filters_hash` are SHA-256 hashes of standardized JSON inputs, ensuring that minor variations in metric payloads perfectly bust the cache.*
+
+### Privacy & Security
+The caching layer (`CacheService`) automatically sanitizes payloads before storing them, ensuring that sensitive identity-vault fields (raw HRMS IDs, email addresses, GitHub usernames, tokens, and passwords) are **never** persisted to Redis.
+
+### Health-Check & Graceful Fallback
+The `CacheService` includes an `is_available()` health check. If Redis is down, unreachable, or experiences a sudden connection timeout, the API will seamlessly fall back to recomputing the data (via the database or ML model) and return it to the client normally. It avoids HTTP 500 errors and ensures zero downtime during cache outages.
+
 ## Model Versioning
 
 Model versioning is handled declaratively via the `random_forest_metadata.json` file. The `"version"` attribute from this file is propagated directly into the `PredictionResponse` so consumers always know exactly which model generated the probability distribution. Backwards compatibility should be managed by keeping legacy models hosted under distinct paths, or appending the version to the API path if major schema changes occur.

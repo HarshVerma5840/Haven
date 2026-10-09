@@ -85,6 +85,13 @@ class AggregationService:
             
             # Refresh to get DB-generated fields like IDs
             self.db.refresh(record)
+            
+            # Invalidate cache for this employee
+            from app.services.cache_service import get_cache_service
+            cache = get_cache_service()
+            cache.invalidate(f"dashboard:{employee_hash}")
+            cache.invalidate(f"prediction:{employee_hash}:{week_start_date}:*")
+            
             return record
 
         except Exception as e:
