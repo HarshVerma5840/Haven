@@ -22,6 +22,15 @@ class User(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
 
 
+class UsedExchangeToken(Base):
+    __tablename__ = 'used_exchange_tokens'
+
+    jti = Column(String, primary_key=True, index=True)
+    username = Column(String, nullable=False)
+    used_at = Column(DateTime, default=func.now(), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+
+
 class WeeklyEmployeeMetrics(Base):
     __tablename__ = 'weekly_employee_metrics'
 

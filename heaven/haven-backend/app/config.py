@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     
     jwt_secret: str = "test_secret"
     jwt_algorithm: str = "HS256"
+    sso_secret: str = ""
     access_token_expire_minutes: int = 15
     
     vault_salt: str = "test_salt_12345678"

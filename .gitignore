@@ -42,3 +42,9 @@ backups/*
 
 # Playwright MCP session artifacts
 .playwright-mcp/
+
+# Frontend dependencies and builds
+node_modules/
+heaven/frontend/node_modules/
+heaven/frontend/dist/
+dist/

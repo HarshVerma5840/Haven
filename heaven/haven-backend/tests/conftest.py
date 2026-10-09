@@ -19,17 +19,17 @@ BehavioralSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=be
 
 @pytest.fixture(scope="session")
 def db_engines():
-    # Only create the tables that belong to each vault's engine
-    models.User.__table__.create(bind=core_engine)
+    # Core engine creates all tables for standalone tests
+    Base.metadata.create_all(bind=core_engine)
     
+    # Specific vaults create their assigned tables
     models.IdentityMapping.__table__.create(bind=identity_engine)
-    
     models.WeeklyEmployeeMetrics.__table__.create(bind=behavioral_engine)
     models.BurnoutPrediction.__table__.create(bind=behavioral_engine)
     
     yield (core_engine, identity_engine, behavioral_engine)
     
-    models.User.__table__.drop(bind=core_engine)
+    Base.metadata.drop_all(bind=core_engine)
     models.IdentityMapping.__table__.drop(bind=identity_engine)
     models.WeeklyEmployeeMetrics.__table__.drop(bind=behavioral_engine)
     models.BurnoutPrediction.__table__.drop(bind=behavioral_engine)
@@ -61,13 +61,31 @@ def db_session(db_engines):
     session_iden.close()
     session_behav.close()
     
-    trans_core.rollback()
-    trans_iden.rollback()
-    trans_behav.rollback()
+    try:
+        trans_core.rollback()
+    except Exception:
+        pass
+    try:
+        trans_iden.rollback()
+    except Exception:
+        pass
+    try:
+        trans_behav.rollback()
+    except Exception:
+        pass
     
     conn_core.close()
     conn_iden.close()
     conn_behav.close()
+
+    with core.begin() as conn:
+        for tbl in reversed(Base.metadata.sorted_tables):
+            conn.execute(tbl.delete())
+    with iden.begin() as conn:
+        conn.execute(models.IdentityMapping.__table__.delete())
+    with behav.begin() as conn:
+        conn.execute(models.WeeklyEmployeeMetrics.__table__.delete())
+        conn.execute(models.BurnoutPrediction.__table__.delete())
 
 @pytest.fixture(scope="function")
 def client(db_session):

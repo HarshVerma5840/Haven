@@ -15,9 +15,9 @@ add_to_apps_screen = [
 	{
 		"name": "heaven",
 		"logo": "/assets/hrms/images/heaven-logo.svg",
-		"title": "Heaven",
-		"route": "/heaven",
-		"sequence_id": 1,
+		"title": "Haven",
+		"route": "/heaven/app/",
+		"sequence_id": 2,
 	},
 ]
 
@@ -31,6 +31,7 @@ boot_session = ["hrms.boot.patch_app_data"]
 # app_include_css = "/assets/hrms/css/hrms.css"
 app_include_js = [
 	"hrms.bundle.js",
+	"/assets/hrms/js/heaven_desk.js",
 ]
 app_include_css = "hrms.bundle.css"
 
@@ -87,6 +88,7 @@ website_generators = ["Job Opening"]
 website_route_rules = [
 	{"from_route": "/hrms/<path:app_path>", "to_route": "hrms"},
 	{"from_route": "/hr/<path:app_path>", "to_route": "roster"},
+	{"from_route": "/heaven/<path:app_path>", "to_route": "heaven"},
 ]
 # Jinja
 # ----------
