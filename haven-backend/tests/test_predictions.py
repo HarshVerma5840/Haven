@@ -242,3 +242,48 @@ def test_api_model_unavailable():
     app.dependency_overrides.clear()
     assert response.status_code == 503 # Missing artifacts return HTTP 503
     assert response.json()["detail"] == "Model is currently unavailable."
+
+def test_explain_api_fallback(mock_pipeline, db_session):
+    from app.services.model_service import ModelService
+    from app.api.predictions import get_model_service
+    from app.main import app
+    from fastapi.testclient import TestClient
+    client = TestClient(app)
+    
+    service = ModelService(
+        pipeline_path="dummy",
+        metadata_path="dummy",
+        features_path="dummy",
+        injected_pipeline=mock_pipeline,
+        injected_metadata={"version": "1.0", "model_type": "Random Forest"},
+        injected_features=["department", "avg_daily_work_hours", "github_commit_count"]
+    )
+    from app.dependencies import get_behavioral_db
+    from app.api.predictions import get_shap_service
+    
+    class MockShapUnavailable:
+        def is_available(self): return False
+        def explain(self, metrics): raise Exception("Should not be called")
+        
+    app.dependency_overrides[get_model_service] = lambda: service
+    app.dependency_overrides[get_behavioral_db] = lambda: db_session.behav
+    app.dependency_overrides[get_shap_service] = lambda: MockShapUnavailable()
+    
+    payload = {
+        "metrics": {
+            "employee_hash": "hash123",
+            "week_start_date": "2023-10-01",
+            "department": "Engineering",
+            "avg_daily_work_hours": 8.5
+        }
+    }
+    
+    response = client.post("/api/v1/predictions/explain", json=payload)
+    app.dependency_overrides.clear()
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    # It safely falls back and returns prediction even if SHAP fails or is unavailable
+    assert data["predicted_risk"] == "Medium"
+    assert data["explanation"] is None
