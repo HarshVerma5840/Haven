@@ -9,7 +9,6 @@ personal documentations/
 .venv/
 
 dataset/
-haven-backend/models/
 PROJECT_CONTEXT.md
 venv/
 
@@ -22,6 +21,8 @@ __pycache__/
 # Haven-main zip
 Haven-main.zip
 Haven-main/
+
+haven-backend/models/*
 
 # Agent and tool artifacts
 .agents/

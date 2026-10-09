@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     cors_origins: list[str] = ["*"]
     
+    service_token: str = "default_dev_service_token_replace_in_prod"
+    
     github_token: str = ""
     github_api_base_url: str = "https://api.github.com"
     github_organization: str = ""

@@ -3,9 +3,7 @@ from frappe import _
 from frappe.permissions import add_user_permission
 from frappe.utils import cint, cstr, now, validate_email_address
 
-from firebase_admin import auth as firebase_auth
 
-from hrms.api.firebase_auth import _get_firebase_admin_app
 
 
 PROVISIONING_PENDING = "Pending"
@@ -163,107 +161,6 @@ def _ensure_frappe_user(employee, email: str):
 	return user
 
 
-def _get_existing_firebase_user_by_email(email: str):
-	try:
-		return firebase_auth.get_user_by_email(email)
-	except firebase_auth.UserNotFoundError:
-		return None
-
-
-def _get_existing_firebase_user_by_uid(uid: str):
-	try:
-		return firebase_auth.get_user(uid)
-	except firebase_auth.UserNotFoundError:
-		return None
-
-
-def _ensure_firebase_user(user, employee, email: str, password: str | None = None):
-	_get_firebase_admin_app()
-
-	if user.firebase_uid:
-		firebase_user = _get_existing_firebase_user_by_uid(user.firebase_uid)
-		if firebase_user:
-			if firebase_user.email and firebase_user.email.lower() != email:
-				frappe.throw(_("Mapped Firebase UID belongs to a different email address."))
-		else:
-			firebase_user = _get_existing_firebase_user_by_email(email)
-	else:
-		firebase_user = _get_existing_firebase_user_by_email(email)
-
-	if not firebase_user:
-		try:
-			create_kwargs = {
-				"email": email,
-				"display_name": employee.employee_name,
-				"disabled": employee.status != "Active",
-				"email_verified": True,
-				"password": password or "Employee@123",
-			}
-			firebase_user = firebase_auth.create_user(**create_kwargs)
-		except firebase_auth.EmailAlreadyExistsError:
-			firebase_user = firebase_auth.get_user_by_email(email)
-		except Exception:
-			# If password policy fails or other issue, retry without password
-			firebase_user = firebase_auth.create_user(
-				email=email,
-				display_name=employee.employee_name,
-				disabled=employee.status != "Active",
-				email_verified=True,
-			)
-		except firebase_auth.EmailAlreadyExistsError:
-			firebase_user = firebase_auth.get_user_by_email(email)
-
-	uid_owner = frappe.db.get_value("User", {"firebase_uid": firebase_user.uid}, "name")
-	if uid_owner and uid_owner != user.name:
-		frappe.throw(
-			_("Firebase UID is already mapped to another Frappe User {0}.").format(
-				frappe.bold(uid_owner)
-			),
-			frappe.DuplicateEntryError,
-		)
-
-	if user.firebase_uid != firebase_user.uid:
-		user.db_set("firebase_uid", firebase_user.uid, update_modified=False)
-		user.firebase_uid = firebase_user.uid
-
-	if firebase_user.disabled != (employee.status != "Active"):
-		firebase_user = firebase_auth.update_user(
-			firebase_user.uid, disabled=employee.status != "Active"
-		)
-
-	return firebase_user
-
-
-def _get_existing_mapped_firebase_user(user, email: str):
-	_get_firebase_admin_app()
-
-	if user.get("firebase_uid"):
-		firebase_user = _get_existing_firebase_user_by_uid(user.firebase_uid)
-		if firebase_user:
-			if firebase_user.email and firebase_user.email.lower() != email:
-				frappe.throw(_("Mapped Firebase UID belongs to a different email address."))
-			return firebase_user
-
-	firebase_user = _get_existing_firebase_user_by_email(email)
-	if not firebase_user:
-		frappe.throw(_("Firebase account does not exist for {0}. Provision the employee first.").format(email))
-
-	uid_owner = frappe.db.get_value("User", {"firebase_uid": firebase_user.uid}, "name")
-	if uid_owner and uid_owner != user.name:
-		frappe.throw(
-			_("Firebase UID is already mapped to another Frappe User {0}.").format(
-				frappe.bold(uid_owner)
-			),
-			frappe.DuplicateEntryError,
-		)
-
-	if user.firebase_uid != firebase_user.uid:
-		user.db_set("firebase_uid", firebase_user.uid, update_modified=False)
-		user.firebase_uid = firebase_user.uid
-
-	return firebase_user
-
-
 def _get_latest_invitation_queue_status(employee_name: str) -> str | None:
 	queue = frappe.db.get_value(
 		"Email Queue",
@@ -322,7 +219,7 @@ def _queue_firebase_invitation(user, employee, email: str, force: bool = False) 
 		return current_status
 
 	try:
-		link = firebase_auth.generate_password_reset_link(email)
+		link = "http://localhost:8001/update-password"
 	except Exception:
 		frappe.logger("employee_provisioning").warning("Could not generate Firebase setup link")
 		return INVITATION_FAILED
@@ -387,21 +284,8 @@ def provision_employee_login(
 		email = _get_employee_login_email(employee_doc)
 		_validate_employee_email_is_available(employee_doc.name, email)
 		user = _ensure_frappe_user(employee_doc, email)
-		firebase_user = _ensure_firebase_user(user, employee_doc, email)
-		firebase_user = _ensure_firebase_user(user, employee_doc, email, password=password)
-		try:
-			from firebase_admin import firestore
-			fs = firestore.client()
-			fs.collection("users").document(firebase_user.uid).set({
-				"email": email,
-				"name": employee_doc.employee_name or employee_doc.name,
-				"role": "Employee",
-				"is_admin": False,
-			}, merge=True)
-		except Exception:
-			frappe.logger("employee_provisioning").warning(
-				"Firestore sync failed for %s", employee_doc.name
-			)
+		
+		
 		invitation_status = (
 			_queue_firebase_invitation(user, employee_doc, email)
 			if cint(send_invitation)
@@ -432,7 +316,7 @@ def provision_employee_login(
 		else PROVISIONING_RETRY
 	)
 	final_message = (
-		_("Employee login provisioned with Firebase UID {0}.").format(firebase_user.uid)
+		_("Employee login provisioned with Frappe User {0}.").format(user.name)
 		if final_status == PROVISIONED
 		else _("Employee login was provisioned, but the invitation email needs attention.")
 	)
@@ -449,7 +333,7 @@ def provision_employee_login(
 		"status": final_status,
 		"employee": employee_doc.name,
 		"user": user.name,
-		"firebase_uid": firebase_user.uid,
+		"firebase_uid": None,
 		"invitation_status": invitation_status,
 	}
 
@@ -465,7 +349,6 @@ def resend_employee_invitation(employee: str, ignore_permissions: bool = False):
 			frappe.throw(_("Employee must be provisioned before resending an invitation."))
 
 		user = frappe.get_doc("User", employee_doc.user_id)
-		firebase_user = _get_existing_mapped_firebase_user(user, email)
 		invitation_status = _queue_firebase_invitation(user, employee_doc, email, force=True)
 	except Exception as error:
 		message = cstr(error)
@@ -498,7 +381,7 @@ def resend_employee_invitation(employee: str, ignore_permissions: bool = False):
 		"status": status,
 		"employee": employee_doc.name,
 		"user": user.name,
-		"firebase_uid": firebase_user.uid,
+		"firebase_uid": None,
 		"invitation_status": invitation_status,
 	}
 

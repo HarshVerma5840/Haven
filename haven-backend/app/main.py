@@ -41,5 +41,6 @@ app.include_router(auth.router)
 app.include_router(analytics.router)
 app.include_router(employees.router)
 
-from app.api import vault
+from app.api import vault, ingestion
 app.include_router(vault.router)
+app.include_router(ingestion.router)

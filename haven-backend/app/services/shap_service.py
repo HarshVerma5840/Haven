@@ -3,10 +3,14 @@ import json
 import joblib
 import pandas as pd
 import numpy as np
-import shap
 import structlog
 from typing import Dict, List, Any, Tuple
 from pydantic import BaseModel
+
+try:
+    import shap
+except ImportError:  # SHAP is optional for regular prediction endpoints.
+    shap = None
 
 logger = structlog.get_logger(__name__)
 
@@ -54,6 +58,10 @@ class ShapService:
         self.load_artifacts()
 
     def load_artifacts(self):
+        if shap is None:
+            logger.warning("SHAP package is unavailable; explanations are disabled")
+            return
+
         try:
             if not os.path.exists(self.pipeline_path) or \
                not os.path.exists(self.metadata_path) or \

@@ -249,14 +249,14 @@ frappe.ui.form.on("Employee", {
 		});
 
 		frm.trigger("add_assignment_actions");
-		frm.trigger("add_firebase_provisioning_action");
+		frm.trigger("add_provisioning_action");
 	},
 
-	add_firebase_provisioning_action: function (frm) {
+	add_provisioning_action: function (frm) {
 		if (frm.is_new() || !frm.has_perm("write")) return;
 
 		if (frm.doc.firebase_provisioning_status !== "Provisioned") {
-			frm.add_custom_button(__("Provision Firebase Login"), () => {
+			frm.add_custom_button(__("Provision Login"), () => {
 				frappe.call({
 					method: "hrms.api.employee_provisioning.provision_employee",
 					args: {
@@ -269,7 +269,7 @@ frappe.ui.form.on("Employee", {
 						const status = response.message?.status;
 						if (status === "Provisioned") {
 							frappe.show_alert({
-								message: __("Firebase login provisioned"),
+								message: __("Login provisioned"),
 								indicator: "green",
 							});
 						} else if (status === "Retry Required") {
@@ -288,7 +288,7 @@ frappe.ui.form.on("Employee", {
 
 		if (!frm.doc.user_id) return;
 
-		frm.add_custom_button(__("Resend Firebase Invitation"), () => {
+		frm.add_custom_button(__("Resend Invitation"), () => {
 			frappe.call({
 				method: "hrms.api.employee_provisioning.resend_invitation",
 				args: {
@@ -300,13 +300,13 @@ frappe.ui.form.on("Employee", {
 					const invitationStatus = response.message?.invitation_status;
 					if (response.message?.status === "Retry Required") {
 						frappe.msgprint({
-							message: __("Invitation could not be queued. Check SMTP/Firebase configuration and retry."),
+							message: __("Invitation could not be queued. Check configuration and retry."),
 							indicator: "orange",
 							title: __("Retry Required"),
 						});
 					} else {
 						frappe.show_alert({
-							message: __("Firebase invitation {0}", [invitationStatus || __("queued")]),
+							message: __("Invitation {0}", [invitationStatus || __("queued")]),
 							indicator: "green",
 						});
 					}

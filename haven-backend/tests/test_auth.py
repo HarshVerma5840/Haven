@@ -132,12 +132,12 @@ def test_rbac_hr_admin_success(client):
 
 def test_hr_admin_analytics_access(client):
     token = client.post("/api/v1/auth/token", data={"username": "hr", "password": "pass"}).json()["access_token"]
-    res = client.get("/api/v1/analytics/", headers={"Authorization": f"Bearer {token}"})
+    res = client.get("/api/v1/analytics/dashboard", headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 200
 
 def test_manager_analytics_rejected(client):
     token = client.post("/api/v1/auth/token", data={"username": "mgr1", "password": "pass"}).json()["access_token"]
-    res = client.get("/api/v1/analytics/", headers={"Authorization": f"Bearer {token}"})
+    res = client.get("/api/v1/analytics/dashboard", headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 403
 
 def test_privileged_routes_persist_after_restart(client):
@@ -158,5 +158,5 @@ def test_privileged_routes_persist_after_restart(client):
     assert settings.jwt_secret == new_settings.jwt_secret
     assert settings.jwt_secret != "random", "JWT secret should be statically defined for persistence"
     
-    res = client.get("/api/v1/analytics/", headers={"Authorization": f"Bearer {token}"})
+    res = client.get("/api/v1/analytics/dashboard", headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 200

@@ -1,5 +1,8 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import OAuth2PasswordBearer
+from app.config import get_settings
+
+settings = get_settings()
 from sqlalchemy.orm import Session
 from app.database.models import User, RoleEnum
 from app.dependencies import get_db
@@ -47,6 +50,15 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         )
         
     return user
+
+async def verify_service_token(x_service_token: str = Header(..., description="Service-to-service authentication token")):
+    if not settings.service_token or x_service_token != settings.service_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid service token",
+        )
+    return True
+
 
 def require_authenticated_user(current_user: User = Depends(get_current_user)) -> User:
     return current_user
