@@ -14,8 +14,8 @@ def test_weekly_employee_metrics_constraints(db_session):
         appraisal_rating=3.0,
         team_size=5
     )
-    db_session.add(metric1)
-    db_session.commit()
+    db_session.behav.add(metric1)
+    db_session.behav.commit()
     
     # Test unique constraint (same hash and date)
     metric2 = WeeklyEmployeeMetrics(
@@ -26,10 +26,10 @@ def test_weekly_employee_metrics_constraints(db_session):
         burnout_score=0.2,
         appraisal_rating=4.0
     )
-    db_session.add(metric2)
+    db_session.behav.add(metric2)
     with pytest.raises(IntegrityError):
-        db_session.commit()
-    db_session.rollback()
+        db_session.behav.commit()
+    db_session.behav.rollback()
 
     # Test valid second model (different date)
     metric3 = WeeklyEmployeeMetrics(
@@ -40,6 +40,6 @@ def test_weekly_employee_metrics_constraints(db_session):
         burnout_score=0.2,
         appraisal_rating=4.0
     )
-    db_session.add(metric3)
-    db_session.commit()
+    db_session.behav.add(metric3)
+    db_session.behav.commit()
     assert metric3.id is not None

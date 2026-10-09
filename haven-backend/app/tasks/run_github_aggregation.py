@@ -5,7 +5,7 @@ import sys
 import structlog
 
 from app.config import get_settings
-from app.database.connection import SessionLocal
+from app.database.connection import BehavioralSessionLocal
 from app.services.github_client import GitHubClient
 from app.services.github_metrics import GitHubMetricsExtractor
 from app.services.aggregation_service import AggregationService, AggregationError
@@ -24,7 +24,7 @@ async def run_aggregation(
     client = GitHubClient()
     extractor = GitHubMetricsExtractor(client)
     
-    db = SessionLocal()
+    db = BehavioralSessionLocal()
     
     try:
         service = AggregationService(db, extractor)

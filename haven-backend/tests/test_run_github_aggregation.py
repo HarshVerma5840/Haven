@@ -35,9 +35,9 @@ def mock_extractor_cls():
 
 @pytest.fixture
 def mock_session_local(db_session):
-    with patch("app.tasks.run_github_aggregation.SessionLocal") as MockSessionLocal:
+    with patch("app.tasks.run_github_aggregation.BehavioralSessionLocal") as MockSessionLocal:
         # Instead of closing the actual session (which the fixture manages), we'll wrap it
-        mock_db = MagicMock(wraps=db_session)
+        mock_db = MagicMock(wraps=db_session.behav)
         MockSessionLocal.return_value = mock_db
         yield mock_db
 

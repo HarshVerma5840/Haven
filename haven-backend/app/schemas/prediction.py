@@ -10,6 +10,7 @@ class PredictionRequest(BaseModel):
     and we ignore them during prediction.
     """
     metrics: WeeklyEmployeeMetricsInput
+    include_explanations: bool = Field(default=False, description="Whether to include and store SHAP explanations")
 
 class RiskProbabilities(BaseModel):
     """
@@ -30,3 +31,4 @@ class PredictionResponse(BaseModel):
     model_version: str = Field(..., description="Version of the model artifacts")
     schema_version: str = Field(default="1.0", description="API Schema version")
     prediction_timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    explanation: dict | None = Field(default=None, description="SHAP feature importance explanations")

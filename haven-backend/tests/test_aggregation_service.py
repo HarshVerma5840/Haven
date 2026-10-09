@@ -28,7 +28,7 @@ def mock_github_extractor():
 
 @pytest.fixture
 def aggregation_service(db_session, mock_github_extractor):
-    return AggregationService(db=db_session, github_extractor=mock_github_extractor)
+    return AggregationService(db=db_session.behav, github_extractor=mock_github_extractor)
 
 @pytest.mark.anyio
 async def test_first_insert(aggregation_service, db_session):
@@ -79,7 +79,7 @@ async def test_existing_employee_week_update(aggregation_service, db_session, mo
     assert record2.github_commit_count == 20
     
     # Verify duplicate prevention
-    count = db_session.query(WeeklyEmployeeMetrics).count()
+    count = db_session.behav.query(WeeklyEmployeeMetrics).count()
     assert count == 1
 
 @pytest.mark.anyio
@@ -98,7 +98,7 @@ async def test_multiple_employees(aggregation_service, db_session):
         week_end_date=datetime.date(2026, 10, 11)
     )
     
-    count = db_session.query(WeeklyEmployeeMetrics).count()
+    count = db_session.behav.query(WeeklyEmployeeMetrics).count()
     assert count == 2
 
 @pytest.mark.anyio
@@ -114,7 +114,7 @@ async def test_github_extraction_failure(aggregation_service, db_session, mock_g
             week_end_date=datetime.date(2026, 10, 11)
         )
         
-    count = db_session.query(WeeklyEmployeeMetrics).count()
+    count = db_session.behav.query(WeeklyEmployeeMetrics).count()
     assert count == 0
 
 @pytest.mark.anyio
@@ -123,7 +123,7 @@ async def test_database_rollback_on_mapping_error(aggregation_service, db_sessio
     def mock_commit():
         raise Exception("DB constraint failed")
     
-    monkeypatch.setattr(db_session, "commit", mock_commit)
+    monkeypatch.setattr(db_session.behav, "commit", mock_commit)
     
     with pytest.raises(Exception, match="DB constraint failed"):
         await aggregation_service.aggregate_github_metrics(
@@ -159,8 +159,8 @@ async def test_preservation_of_hrms_and_target_values(aggregation_service, db_se
         label_source="manual",
         schema_version="1.0"
     )
-    db_session.add(initial_record)
-    db_session.commit()
+    db_session.behav.add(initial_record)
+    db_session.behav.commit()
 
     # Act
     record = await aggregation_service.aggregate_github_metrics(

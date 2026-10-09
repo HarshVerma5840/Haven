@@ -65,6 +65,7 @@ If artifacts are missing or malformed, `"model"` will return `"unavailable"` and
 ## Calling the Prediction Endpoint
 
 The model serving endpoint is available at `POST /api/v1/predictions`. It expects a `WeeklyEmployeeMetricsInput` payload inside a `"metrics"` key.
+You can explicitly request a SHAP explanation for the prediction by setting `include_explanations: true`.
 
 **Request (`POST`):**
 ```json
@@ -75,7 +76,8 @@ The model serving endpoint is available at `POST /api/v1/predictions`. It expect
     "department": "Engineering",
     "avg_daily_work_hours": 9.5,
     "github_commit_count": 25
-  }
+  },
+  "include_explanations": true
 }
 ```
 
@@ -91,9 +93,21 @@ The model serving endpoint is available at `POST /api/v1/predictions`. It expect
   "model_type": "Random Forest",
   "model_version": "1.0",
   "schema_version": "1.0",
-  "prediction_timestamp": "2023-10-02T10:00:00Z"
+  "prediction_timestamp": "2023-10-02T10:00:00Z",
+  "explanation": {
+    "model_version": "rf-dev-1.1",
+    "disclaimer": "SHAP values represent feature contributions to the model's prediction and are not causal explanations.",
+    "explanations": {
+      "High": {
+        "top_positive": [{"feature": "avg_daily_work_hours", "impact": 0.034}],
+        "top_negative": [{"feature": "overtime_hours", "impact": -0.044}]
+      }
+    }
+  }
 }
 ```
+
+> **Security Note**: When `include_explanations` is requested, the prediction and its SHAP explanation will be saved to the Behavioral Vault. Identity variables are excluded from the SHAP calculations to preserve privacy.
 
 ## Model Versioning
 
