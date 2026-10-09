@@ -1,7 +1,7 @@
 """Add users table
 
 Revision ID: e70388c8c782
-Revises: 637ca6cd29c7
+Revises: 
 Create Date: 2026-10-08 22:11:39.159524
 
 """
@@ -13,12 +13,13 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'e70388c8c782'
-down_revision: Union[str, None] = 'e4ae969e0060'
+down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    print("Migrating core database: creating users table")
     op.create_table('users',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('username', sa.String(), nullable=False),

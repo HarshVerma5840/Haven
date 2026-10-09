@@ -43,6 +43,7 @@ Initialize the PostgreSQL schemas across the Three-Vault databases and seed the 
 python run_migrations.py
 python seed.py
 ```
+*Note: If you already ran migrations before the schemas were physically isolated, you can drop the incorrectly duplicated tables using `python run_migrations.py --reset-dev` (development only).*
 
 ### 6. Run the API
 

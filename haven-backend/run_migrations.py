@@ -20,6 +20,14 @@ def run_migrations():
         print(f"Applying migrations to {db_name}...")
         # Override the URL in the alembic environment
         alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+        
+        if db_name == "haven":
+            alembic_cfg.set_main_option("version_locations", "migrations/versions/core")
+        elif db_name == "haven_identity":
+            alembic_cfg.set_main_option("version_locations", "migrations/versions/identity")
+        elif db_name == "haven_behavioral":
+            alembic_cfg.set_main_option("version_locations", "migrations/versions/behavioral")
+            
         try:
             # Upgrade to head
             command.upgrade(alembic_cfg, "head")

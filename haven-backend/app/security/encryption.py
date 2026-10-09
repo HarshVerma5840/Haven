@@ -1,41 +1,48 @@
-import base64
-import hashlib
+import os
+from typing import Dict, Any, Optional
+from jwcrypto import jwk, jwe
+import json
 from cryptography.fernet import Fernet
-from typing import Optional
-from app.config import get_settings
-import structlog
+import base64
 
-logger = structlog.get_logger(__name__)
-settings = get_settings()
-
-def _get_fernet() -> Fernet:
-    """
-    Derives a valid 32-byte base64-encoded key from the settings.encryption_key.
-    Uses SHA-256 to guarantee 32 bytes length.
-    """
-    key_bytes = settings.encryption_key.encode('utf-8')
-    derived_key = hashlib.sha256(key_bytes).digest()
-    b64_key = base64.urlsafe_b64encode(derived_key)
-    return Fernet(b64_key)
+def get_fernet() -> Fernet:
+    from app.config import get_settings
+    settings = get_settings()
+    key = settings.encryption_key.encode('utf-8')
+    # Fernet requires a 32 url-safe base64-encoded byte string
+    if len(key) < 32:
+        key = key.ljust(32, b'0')
+    elif len(key) > 32:
+        key = key[:32]
+    fernet_key = base64.urlsafe_b64encode(key)
+    return Fernet(fernet_key)
 
 def encrypt_value(value: Optional[str]) -> Optional[str]:
-    """Encrypts a string value. Returns None if input is None or empty."""
     if not value:
-        return None
-    try:
-        f = _get_fernet()
-        return f.encrypt(value.encode('utf-8')).decode('utf-8')
-    except Exception as e:
-        logger.error("Failed to encrypt identity value.")
-        raise ValueError("Encryption failed")
+        return value
+    f = get_fernet()
+    return f.encrypt(value.encode('utf-8')).decode('utf-8')
 
-def decrypt_value(encrypted_value: Optional[str]) -> Optional[str]:
-    """Decrypts a string value. Restricted strictly to identity vault logic."""
-    if not encrypted_value:
-        return None
+def decrypt_value(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return value
+    f = get_fernet()
+    return f.decrypt(value.encode('utf-8')).decode('utf-8')
+
+def get_private_key() -> jwk.JWK:
+    from app.config import get_settings
+    settings = get_settings()
+    pem = settings.haven_encryption_private_key
+    if not pem:
+        raise ValueError("HAVEN_ENCRYPTION_PRIVATE_KEY is not set.")
+    return jwk.JWK.from_pem(pem.encode('utf-8'))
+
+def decrypt_jwe(jwe_token: str) -> Dict[str, Any]:
+    key = get_private_key()
+    jwetoken = jwe.JWE()
     try:
-        f = _get_fernet()
-        return f.decrypt(encrypted_value.encode('utf-8')).decode('utf-8')
+        jwetoken.deserialize(jwe_token, key=key)
+        payload = jwetoken.payload.decode('utf-8')
+        return json.loads(payload)
     except Exception as e:
-        logger.error("Failed to decrypt identity value.")
-        raise ValueError("Decryption failed")
+        raise ValueError(f"Failed to decrypt JWE token: {e}")
