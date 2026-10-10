@@ -23,4 +23,4 @@ Haven detects employee burnout proactively from behavioral metadata while mainta
 
 ## Documentation
 
-For a detailed breakdown of the architecture, methodologies, database schemas, and project scope, please refer to the [Project Overview](./personal%20documentations/haven_project_overview.md).
+For a more detailed breakdown of the architecture, methodologies, database schemas, and project scope, please refer to the [Project Overview](./personal%20documentations/haven_project_overview.md).
