@@ -4,7 +4,9 @@
  * Credentials and tokens are stored in sessionStorage — never in source code.
  */
 
-const BASE_URL = import.meta.env?.VITE_API_BASE_URL ?? '/api/v1'
+const BASE_URL = (typeof window !== 'undefined' && window.haven_api_base)
+  ? window.haven_api_base
+  : (import.meta.env?.VITE_API_BASE_URL ?? '/api/v1')
 
 function getToken() {
   return sessionStorage.getItem('haven_token')
@@ -29,11 +31,18 @@ async function request(method, path, { body, params } = {}) {
     body: body ? JSON.stringify(body) : undefined
   })
 
+function getLoginUrl() {
+  if (typeof window !== 'undefined' && import.meta.env?.DEV && !window.location.pathname.startsWith('/heaven/app')) {
+    return '/login'
+  }
+  return '/heaven/app/login'
+}
+
   if (res.status === 401) {
     sessionStorage.removeItem('haven_token')
     sessionStorage.removeItem('haven_user')
     sessionStorage.removeItem('haven_role')
-    window.location.href = '/heaven/app/login'
+    window.location.href = getLoginUrl()
     return
   }
 
@@ -180,7 +189,7 @@ export const healthApi = {
     }
     if (res && res.status === 401) {
       sessionStorage.removeItem('haven_token')
-      window.location.href = '/heaven/app/login'
+      window.location.href = getLoginUrl()
       return
     }
     if (!res || !res.ok) throw new Error(`Readiness check failed: ${res ? res.statusText : 'Offline'}`)

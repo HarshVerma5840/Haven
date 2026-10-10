@@ -11,5 +11,8 @@ class ReadyResponse(BaseModel):
     status: str
     database: str
     model: Optional[str] = None
+    model_name: Optional[str] = None
+    model_version: Optional[str] = None
+    model_error: Optional[str] = None
     redis: Optional[str] = "ok"
     encryption: Optional[str] = "ok"

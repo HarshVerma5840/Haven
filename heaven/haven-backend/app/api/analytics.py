@@ -11,10 +11,69 @@ from app.security.dependencies import require_manager_or_hr_admin, require_hr_ad
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 
 
+import hashlib
+import json
+from app.config import get_settings
+from app.services.cache_service import CacheService, get_cache_service
+
+def _hash_filters(filters: str) -> str:
+    try:
+        parsed = json.loads(filters)
+        standardized = json.dumps(parsed, sort_keys=True)
+        return hashlib.sha256(standardized.encode()).hexdigest()[:16]
+    except Exception:
+        return hashlib.sha256(filters.encode()).hexdigest()[:16]
+
+
 @router.get("/")
 def get_analytics(current_user: User = Depends(require_hr_admin)):
     """HR_ADMIN can access authorized aggregate HR analytics."""
     return {"message": "Authorized aggregate HR analytics"}
+
+
+@router.get("/dashboard")
+def get_dashboard_summary(
+    department: str = "Engineering",
+    start_date: str = "2023-01-01",
+    end_date: str = "2023-12-31",
+    filters: str = "{}",
+    model_version: str = "1.0",
+    current_user: User = Depends(require_hr_admin),
+    cache_service: CacheService = Depends(get_cache_service),
+    db: Session = Depends(get_behavioral_db)
+):
+    settings = get_settings()
+    filters_hash = _hash_filters(filters)
+    cache_key = f"analytics:dashboard:{department}:{start_date}:{end_date}:{filters_hash}:{model_version}"
+
+    if cache_service:
+        try:
+            cached_data = cache_service.get(cache_key)
+            if cached_data:
+                return cached_data
+        except Exception:
+            pass
+
+    query = db.query(WeeklyEmployeeMetrics)
+    if department:
+        query = query.filter(WeeklyEmployeeMetrics.department == department)
+    total_employees = query.distinct(WeeklyEmployeeMetrics.employee_hash).count()
+    high_risk_count = query.filter(WeeklyEmployeeMetrics.burnout_risk == "High").distinct(WeeklyEmployeeMetrics.employee_hash).count()
+
+    response_data = {
+        "department": department,
+        "date_range": {"start": start_date, "end": end_date},
+        "metrics": {"total_employees": total_employees, "high_risk_count": high_risk_count},
+        "model_version": model_version
+    }
+
+    if cache_service:
+        try:
+            cache_service.set(cache_key, response_data, getattr(settings, "cache_ttl_dashboard", 300))
+        except Exception:
+            pass
+
+    return response_data
 
 
 @router.get("/network")
@@ -22,14 +81,31 @@ def get_network_graph(
     department: Optional[str] = Query(None, description="Filter by department"),
     graph_type: Optional[str] = Query("collaboration", description="Graph type (collaboration, communication, timesheet)"),
     date: Optional[str] = Query(None, description="Evaluation date"),
+    start_date: str = Query("2023-01-01"),
+    end_date: str = Query("2023-12-31"),
+    filters: str = Query("{}"),
+    analysis_version: str = Query("1.0"),
     db: Session = Depends(get_behavioral_db),
-    current_user: User = Depends(require_manager_or_hr_admin)
+    current_user: User = Depends(require_hr_admin),
+    cache_service: CacheService = Depends(get_cache_service)
 ):
     """
     Returns organizational collaboration nodes and edges for network analysis.
     Uses PostgreSQL behavioral metrics and burnout risk predictions.
     Never exposes identity-vault personal data.
     """
+    settings = get_settings()
+    filters_hash = _hash_filters(filters)
+    cache_key = f"analytics:graph:{graph_type}:{start_date}:{end_date}:{filters_hash}:{analysis_version}"
+
+    if cache_service:
+        try:
+            cached_data = cache_service.get(cache_key)
+            if cached_data:
+                return cached_data
+        except Exception:
+            pass
+
     allowed_department = department
     if current_user.role == RoleEnum.MANAGER and current_user.department:
         allowed_department = current_user.department
@@ -87,8 +163,17 @@ def get_network_graph(
                     "interaction_type": "Collaboration Link"
                 })
 
-    return {"nodes": raw_nodes, "edges": raw_edges}
+    result = {"nodes": raw_nodes, "edges": raw_edges}
+    if cache_service:
+        try:
+            cache_service.set(cache_key, result, getattr(settings, "cache_ttl_analytics", 300))
+        except Exception:
+            pass
 
+    return result
+
+
+from app.config import get_settings
 
 @router.get("/integration")
 def get_integration_status(
@@ -96,9 +181,11 @@ def get_integration_status(
     current_user: User = Depends(require_manager_or_hr_admin)
 ):
     """
-    Returns live HRMS-to-Haven pipeline synchronization and encryption status.
-    Never exposes raw JWE keys or service tokens.
+    Returns live HRMS-to-Haven pipeline synchronization and encryption status,
+    plus GitHub metrics integration configuration status.
+    Never exposes raw JWE keys, service tokens, or GitHub tokens.
     """
+    settings = get_settings()
     count = db.query(WeeklyEmployeeMetrics).count()
     latest = db.query(WeeklyEmployeeMetrics).order_by(desc(WeeklyEmployeeMetrics.created_at)).first()
     avg_completeness = db.query(func.avg(WeeklyEmployeeMetrics.data_completeness)).scalar()
@@ -115,5 +202,57 @@ def get_integration_status(
         "service_token_status": "Active & Validated" if has_data else "Configured (No Ingestion Yet)",
         "data_completeness": round(float(avg_completeness), 1) if avg_completeness is not None else 0.0,
         "is_live": has_data,
-        "hrms_endpoint": "/desk/hr-setup"
+        "hrms_endpoint": "/desk/hr-setup",
+        "github_configured": bool(settings.github_token),
+        "github_organization_configured": bool(settings.github_organization),
+        "github_repository_count": len(settings.github_repositories),
+        "github_integration_status": "Configured & Ready" if settings.github_token else "Awaiting GITHUB_TOKEN",
+        "github_scheduler_mode": "Scheduled Cron / CLI Task",
+        "github_is_live": False
     }
+
+
+@router.get("/integration/github")
+def get_github_integration_status(
+    current_user: User = Depends(require_manager_or_hr_admin)
+):
+    """
+    Returns authenticated GitHub integration telemetry and configuration status.
+    Never exposes the GitHub token, raw credentials, or sensitive repository details.
+    """
+    settings = get_settings()
+    is_configured = bool(settings.github_token)
+
+    return {
+        "configured": is_configured,
+        "status": "Ready for Aggregation" if is_configured else "Token Not Configured",
+        "organization_configured": bool(settings.github_organization),
+        "repository_count": len(settings.github_repositories),
+        "working_timezone": settings.github_working_timezone,
+        "workday_window": f"{settings.github_workday_start} - {settings.github_workday_end}",
+        "scheduler_mode": "Scheduled Cron / CLI Task (app.tasks.run_github_aggregation)",
+        "is_live_streaming": False,
+        "identity_mapping_field": "custom_github_username (HRMS Employee)"
+    }
+
+
+@router.post("/integration/github/trigger")
+async def trigger_github_aggregation(
+    week_start: Optional[str] = Query(None, description="Week start date in YYYY-MM-DD format"),
+    current_user: User = Depends(require_hr_admin)
+):
+    """
+    Triggers batch GitHub aggregation for all mapped employees in the Identity Vault.
+    Only accessible by HR_ADMIN.
+    """
+    import datetime
+    from app.tasks.run_github_aggregation import run_all_employees_aggregation
+
+    if week_start:
+        start_date = datetime.date.fromisoformat(week_start)
+    else:
+        today = datetime.date.today()
+        start_date = today - datetime.timedelta(days=today.weekday())
+
+    summary = await run_all_employees_aggregation(week_start_date=start_date)
+    return summary

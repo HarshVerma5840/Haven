@@ -23,6 +23,7 @@ Haven-main.zip
 Haven-main/
 
 haven-backend/models/*
+heaven/haven-backend/models/*
 
 # Agent and tool artifacts
 .agents/

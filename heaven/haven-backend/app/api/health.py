@@ -28,7 +28,11 @@ def readiness_check(db: Session = Depends(get_db), current_user: User = Depends(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database connection failed")
 
     model_service = ModelService.get_instance()
-    model_status = "ok" if model_service.is_available() else "unavailable"
+    is_model_ok = model_service.is_available()
+    model_status = "ok" if is_model_ok else "unavailable"
+    model_name = model_service.get_model_name()
+    model_version = model_service.get_model_version() if is_model_ok else None
+    model_error = model_service.get_load_error()
 
     settings = get_settings()
     encryption_status = "ok" if settings.encryption_key else "unavailable"
@@ -45,6 +49,9 @@ def readiness_check(db: Session = Depends(get_db), current_user: User = Depends(
         "status": status_overall,
         "database": db_status,
         "model": model_status,
+        "model_name": model_name,
+        "model_version": model_version,
+        "model_error": model_error,
         "redis": redis_status,
         "encryption": encryption_status
     }

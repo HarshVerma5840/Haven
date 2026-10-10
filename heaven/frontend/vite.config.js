@@ -2,8 +2,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
-export default defineConfig({
-  base: '/assets/hrms/heaven/',
+export default defineConfig(({ command }) => ({
+  base: command === 'serve' ? '/' : '/assets/hrms/heaven/',
   plugins: [vue()],
   resolve: {
     alias: {
@@ -27,4 +27,4 @@ export default defineConfig({
       '/api': 'http://localhost:8000',
     },
   },
-})
+}))

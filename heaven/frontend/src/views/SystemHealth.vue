@@ -4,7 +4,7 @@
       <div class="section-header">
         <div>
           <h2 class="section-title">System Infrastructure & Health</h2>
-          <p class="section-sub">Real-time health telemetry across API, Dual-Vault PostgreSQL, Redis, CatBoost ML model, and JWE encryption.</p>
+          <p class="section-sub">Real-time health telemetry across API, Dual-Vault PostgreSQL, Redis, Random Forest ML model, and JWE encryption.</p>
         </div>
         <div class="header-actions">
           <NeoButton variant="secondary" size="sm" :loading="checking" @click="checkHealth">
@@ -62,17 +62,22 @@
           <div class="service-icon">🧠</div>
           <div>
             <h3 class="service-name">Burnout ML Model</h3>
-            <span class="service-type">CatBoost + TreeSHAP Engine</span>
+            <span class="service-type">{{ readyStatus.model_name || 'Random Forest Classifier (scikit-learn)' }}</span>
           </div>
         </div>
         <div class="status-indicator-box" :class="modelUp ? 'up' : 'down'">
           <span class="dot" />
-          <span class="status-label">{{ modelUp ? 'Model Loaded & Ready' : 'Model Unavailable' }}</span>
+          <span class="status-label">{{ modelUp ? 'Model Loaded & Ready' : (readyStatus.model_error || 'Model Unavailable') }}</span>
         </div>
         <div class="service-meta">
-          <div class="meta-row"><span>Version:</span> <strong>v1.2.0-prod</strong></div>
+          <div class="meta-row"><span>Architecture:</span> <strong>{{ readyStatus.model_name || 'RandomForestClassifier' }}</strong></div>
+          <div class="meta-row"><span>Version:</span> <strong>{{ readyStatus.model_version || (modelUp ? 'rf-dev-1.1' : 'unavailable') }}</strong></div>
           <div class="meta-row"><span>Inference Engine:</span> <strong>{{ modelUp ? 'Active' : 'Offline' }}</strong></div>
           <div class="meta-row"><span>Status:</span> <strong>{{ readyStatus.model ?? (modelUp ? 'ok' : 'unavailable') }}</strong></div>
+          <div v-if="readyStatus.model_error" class="meta-row error-meta-row">
+            <span>Failure Reason:</span>
+            <strong class="text-error">{{ readyStatus.model_error }}</strong>
+          </div>
         </div>
       </NeoCard>
 
@@ -264,5 +269,16 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.error-meta-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.text-error {
+  color: var(--risk-high, #ef4444);
+  font-size: 0.725rem;
+  line-height: 1.35;
+  word-break: break-word;
 }
 </style>

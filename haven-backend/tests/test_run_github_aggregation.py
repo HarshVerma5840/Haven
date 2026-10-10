@@ -35,10 +35,12 @@ def mock_extractor_cls():
 
 @pytest.fixture
 def mock_session_local(db_session):
-    with patch("app.tasks.run_github_aggregation.BehavioralSessionLocal") as MockSessionLocal:
+    with patch("app.tasks.run_github_aggregation.SessionLocal") as MockSessionLocal, \
+         patch("app.tasks.run_github_aggregation.BehavioralSessionLocal") as MockBehavSessionLocal:
         # Instead of closing the actual session (which the fixture manages), we'll wrap it
         mock_db = MagicMock(wraps=db_session.behav)
         MockSessionLocal.return_value = mock_db
+        MockBehavSessionLocal.return_value = mock_db
         yield mock_db
 
 @pytest.mark.anyio
@@ -133,3 +135,131 @@ def test_main_cli_success(mock_client_cls, mock_extractor_cls, mock_session_loca
     
     # If it didn't exit(1), it was successful
     mock_session_local.close.assert_called_once()
+
+from app.tasks.run_github_aggregation import run_all_employees_aggregation
+from app.database.models import IdentityMapping, WeeklyEmployeeMetrics
+from app.security.encryption import encrypt_value
+
+@pytest.mark.anyio
+async def test_batch_aggregation_with_employee_mapping(mock_client_cls, mock_extractor_cls, db_session):
+    _, mock_client = mock_client_cls
+    iden_sess = db_session.iden
+    behav_sess = db_session.behav
+
+    iden_sess.query(IdentityMapping).delete()
+    iden_sess.add(IdentityMapping(
+        employee_hash="emp_hash_mapped",
+        github_username=encrypt_value("octocat_dev"),
+        hrms_employee_id=encrypt_value("HR-001")
+    ))
+    iden_sess.add(IdentityMapping(
+        employee_hash="emp_hash_no_gh",
+        github_username=None, # Missing username should skip gracefully without crash
+        hrms_employee_id=encrypt_value("HR-002")
+    ))
+    iden_sess.flush()
+
+    result = await run_all_employees_aggregation(
+        week_start_date=datetime.date(2026, 10, 5),
+        week_end=datetime.date(2026, 10, 11),
+        identity_db=iden_sess,
+        behavioral_db=behav_sess,
+        client=mock_client
+    )
+
+    assert result["status"] == "completed"
+    assert result["total_mapped_employees"] == 2
+    assert result["processed"] == 1
+    assert result["skipped_no_github_username"] == 1
+    assert result["failed"] == 0
+
+@pytest.mark.anyio
+async def test_anonymized_storage_and_no_secret_leakage(mock_client_cls, mock_extractor_cls, db_session, monkeypatch):
+    test_secret_token = "ghp_SuperSecretToken1234567890ABCDEF"
+    monkeypatch.setenv("GITHUB_TOKEN", test_secret_token)
+    
+    _, mock_client = mock_client_cls
+    iden_sess = db_session.iden
+    behav_sess = db_session.behav
+
+    iden_sess.query(IdentityMapping).delete()
+    iden_sess.add(IdentityMapping(
+        employee_hash="emp_hash_anon",
+        github_username=encrypt_value("developer_user"),
+        hrms_employee_id=encrypt_value("HR-999")
+    ))
+    iden_sess.flush()
+
+    captured_logs = []
+    with patch("app.tasks.run_github_aggregation.logger") as mock_logger:
+        def log_info(msg, **kwargs):
+            captured_logs.append((msg, kwargs))
+        def log_warning(msg, **kwargs):
+            captured_logs.append((msg, kwargs))
+        def log_error(msg, **kwargs):
+            captured_logs.append((msg, kwargs))
+            
+        mock_logger.info.side_effect = log_info
+        mock_logger.warning.side_effect = log_warning
+        mock_logger.error.side_effect = log_error
+
+        result = await run_all_employees_aggregation(
+            week_start_date=datetime.date(2026, 10, 5),
+            week_end=datetime.date(2026, 10, 11),
+            identity_db=iden_sess,
+            behavioral_db=behav_sess,
+            client=mock_client
+        )
+
+        assert result["processed"] == 1
+
+        # 1. Verify anonymized storage in Behavioral Vault
+        record = behav_sess.query(WeeklyEmployeeMetrics).filter_by(employee_hash="emp_hash_anon").first()
+        assert record is not None
+        assert record.employee_hash == "emp_hash_anon"
+        # Confirm WeeklyEmployeeMetrics table has NO column for github_username or any raw identity
+        assert not hasattr(record, "github_username")
+        assert not hasattr(record, "custom_github_username")
+        assert not hasattr(record, "hrms_employee_id")
+        # Confirm aggregate metrics are stored
+        assert record.github_commit_count == 5
+        assert record.after_hours_commit_count == 1
+        assert record.weekend_commit_count == 0
+
+        # 2. Verify no secret token or raw username leakage in logs
+        for msg, kwargs in captured_logs:
+            full_log_str = str(msg) + str(kwargs)
+            assert test_secret_token not in full_log_str
+            assert "developer_user" not in full_log_str
+            assert "github_username" not in kwargs
+
+@pytest.mark.anyio
+async def test_batch_aggregation_handles_employee_failure(mock_client_cls, mock_extractor_cls, db_session):
+    _, mock_client = mock_client_cls
+    _, mock_extractor = mock_extractor_cls
+    iden_sess = db_session.iden
+    behav_sess = db_session.behav
+
+    iden_sess.query(IdentityMapping).delete()
+    iden_sess.add(IdentityMapping(
+        employee_hash="emp_hash_fail",
+        github_username=encrypt_value("failing_user"),
+        hrms_employee_id=encrypt_value("HR-003")
+    ))
+    iden_sess.flush()
+
+    mock_extractor.extract_weekly_metrics.side_effect = Exception("Repository access failed")
+
+    result = await run_all_employees_aggregation(
+        week_start_date=datetime.date(2026, 10, 5),
+        week_end=datetime.date(2026, 10, 11),
+        identity_db=iden_sess,
+        behavioral_db=behav_sess,
+        client=mock_client
+    )
+
+    assert result["status"] == "completed"
+    assert result["total_mapped_employees"] == 1
+    assert result["processed"] == 0
+    assert result["failed"] == 1
+

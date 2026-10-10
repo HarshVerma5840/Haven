@@ -63,7 +63,7 @@
       <NeoCard>
         <div class="section-header">
           <h3 class="section-title">Burnout Prediction History</h3>
-          <span class="section-badge">{{ metrics.model_version || 'CatBoost Model v1.2.0' }}</span>
+          <span class="section-badge">{{ metrics.model_version || 'Random Forest Model rf-dev-1.1' }}</span>
         </div>
 
         <DataTable :columns="columns" :rows="predictions" :loading="predLoading" :error="predError">

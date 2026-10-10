@@ -45,8 +45,12 @@ const routes = [
   { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFound }
 ]
 
+const historyBase = (typeof window !== 'undefined' && import.meta.env.DEV && !window.location.pathname.startsWith('/heaven/app'))
+  ? '/'
+  : '/heaven/app/'
+
 const router = createRouter({
-  history: createWebHistory('/heaven/app/'),
+  history: createWebHistory(historyBase),
   routes,
   scrollBehavior: () => ({ top: 0 })
 })

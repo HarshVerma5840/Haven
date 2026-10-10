@@ -203,4 +203,3 @@ def test_github_integration_status_endpoint(client, monkeypatch):
     assert "github_token" not in main_data
 
     get_settings.cache_clear()
-

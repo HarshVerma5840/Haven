@@ -169,3 +169,45 @@ async def test_pr_and_reviews(extractor, mock_client):
     assert metrics.pull_request_count == 0 # created by otheruser
     assert metrics.review_count == 1
     assert metrics.review_response_hours == 1.0
+
+@pytest.mark.anyio
+async def test_missing_or_blank_username_returns_empty_metrics(extractor, mock_client):
+    # None or empty username should return zero metrics without making API calls
+    metrics = await extractor.extract_weekly_metrics("", date(2026, 10, 5), date(2026, 10, 11))
+    assert metrics.github_commit_count == 0
+    assert metrics.pull_request_count == 0
+    assert metrics.issue_count == 0
+    assert mock_client.get_paginated.call_count == 0
+
+    metrics_none = await extractor.extract_weekly_metrics(None, date(2026, 10, 5), date(2026, 10, 11))
+    assert metrics_none.github_commit_count == 0
+    assert mock_client.get_paginated.call_count == 0
+
+@pytest.mark.anyio
+async def test_unauthorized_token_handled_gracefully(extractor, mock_client):
+    from app.services.github_client import GitHubUnauthorizedError
+    mock_client.get_paginated.side_effect = GitHubUnauthorizedError("Expired or invalid token")
+    
+    # Should not raise exception; handles gracefully and returns collected/zero metrics
+    metrics = await extractor.extract_weekly_metrics("testuser", date(2026, 10, 5), date(2026, 10, 11))
+    assert metrics.github_commit_count == 0
+    assert metrics.pull_request_count == 0
+
+@pytest.mark.anyio
+async def test_inaccessible_repository_handled_gracefully(extractor, mock_client):
+    from app.services.github_client import GitHubNotFoundError
+    extractor.repos = ["org/private_or_deleted_repo", "org/valid_repo"]
+
+    def side_effect(path, params=None):
+        if "private_or_deleted_repo" in path:
+            raise GitHubNotFoundError("Repository not found")
+        elif "valid_repo/commits" in path:
+            return [{"sha": "valid_sha", "commit": {"author": {"date": "2026-10-05T10:00:00Z"}}}]
+        return []
+
+    mock_client.get_paginated.side_effect = side_effect
+    
+    # Should catch 404 on first repo and proceed to extract from valid_repo without crashing
+    metrics = await extractor.extract_weekly_metrics("testuser", date(2026, 10, 5), date(2026, 10, 11))
+    assert metrics.github_commit_count == 1
+

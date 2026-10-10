@@ -94,6 +94,50 @@
         </div>
       </NeoCard>
 
+      <!-- GitHub Metrics Aggregation Card -->
+      <NeoCard class="detail-card">
+        <div class="card-top">
+          <h3 class="card-title">GitHub Developer Activity Integration</h3>
+          <span class="mode-pill" :class="status.github_configured ? 'live' : 'demo'">
+            ● {{ status.github_configured ? 'Configured & Active' : 'Awaiting Token' }}
+          </span>
+        </div>
+
+        <div class="pipeline-grid">
+          <div class="pipeline-item">
+            <div class="pipeline-item__label">Configuration Status</div>
+            <div class="pipeline-item__val text-primary font-bold">
+              {{ status.github_integration_status || (status.github_configured ? 'Configured & Ready' : 'Token Not Set') }}
+            </div>
+            <div class="pipeline-item__sub">GITHUB_TOKEN read securely from environment only</div>
+          </div>
+
+          <div class="pipeline-item">
+            <div class="pipeline-item__label">Tracked Repositories</div>
+            <div class="pipeline-item__val font-bold">
+              {{ status.github_repository_count ?? 0 }} repositories
+            </div>
+            <div class="pipeline-item__sub">Configured via GITHUB_REPOSITORIES</div>
+          </div>
+
+          <div class="pipeline-item">
+            <div class="pipeline-item__label">Employee Mapping</div>
+            <div class="pipeline-item__val text-success">
+              <code>custom_github_username</code>
+            </div>
+            <div class="pipeline-item__sub">Mapped in HRMS & encrypted inside Identity Vault</div>
+          </div>
+
+          <div class="pipeline-item">
+            <div class="pipeline-item__label">Execution Trigger</div>
+            <div class="pipeline-item__val">
+              {{ status.github_scheduler_mode || 'Scheduled Cron / CLI Task' }}
+            </div>
+            <div class="pipeline-item__sub">Weekly aggregation combined with HRMS attendance</div>
+          </div>
+        </div>
+      </NeoCard>
+
       <!-- Recent Batches Info -->
       <NeoCard class="log-card">
         <h3 class="card-title">Recent Ingestion Batches</h3>
